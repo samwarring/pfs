@@ -1,5 +1,6 @@
 cmake_minimum_required(VERSION 3.19)
 project(pfs VERSION 0.1.0)
+enable_testing()
 add_library(pfs INTERFACE)
 target_include_directories(pfs INTERFACE include)
 target_compile_features(pfs INTERFACE cxx_std_17)

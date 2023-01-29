@@ -1,2 +1,5 @@
-add_executable(pfs_test pfs_test.cpp test_fake_filesystem.cpp
-                        test_std_filesystem.cpp)
+add_executable(pfs_test test_fake_filesystem.cpp test_std_filesystem.cpp)
+find_package(Catch2 REQUIRED)
+target_link_libraries(pfs_test PRIVATE Catch2::Catch2WithMain pfs)
+include(Catch)
+catch_discover_tests(pfs_test)
