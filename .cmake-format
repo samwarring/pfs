@@ -1,0 +1,66 @@
+# https://cmake-format.readthedocs.io/en/latest/configopts.html#configopts
+
+format:
+
+  # How wide to allow formatted cmake files
+  line_width: 80
+
+  # How many spaces to tab for indent
+  tab_size: 4
+
+  # If true, lines are indented using tab characters (utf-8 0x09) instead of
+  # <tab_size> space characters (utf-8 0x20). In cases where the layout would
+  # require a fractional tab character, the behavior of the  fractional
+  # indentation is governed by <fractional_tab_policy>
+  use_tabchars: false
+
+  # If an argument group contains more than this many sub-groups
+  # (parg or kwarg groups) then force it to a vertical layout.
+  max_subgroups_hwrap: 3
+  
+  # If a positional argument group contains more than this many
+  # arguments, then force it to a vertical layout.
+  max_pargs_hwrap: 3
+
+  # If true, separate flow control names from their parentheses
+  # with a space
+  separate_ctrl_name_with_space: true
+  
+  # If a statement is wrapped to more than one line, than dangle
+  # the closing parenthesis on its own line.
+  dangle_parens: false
+
+  # If the trailing parenthesis must be 'dangled' on its own line, then align
+  # it to this reference:
+  #   `prefix`: the start of the statement,
+  #   `prefix-indent`: the start of the statement, plus one indentation  level,
+  #   `child`: align to the column of the arguments
+  dangle_align: prefix
+
+  # Format command names consistently as 'lower' or 'upper' case
+  command_case: canonical
+  
+  # Format keywords consistently as 'lower' or 'upper' case
+  keyword_case: upper
+  
+  # A list of command names which should always be wrapped
+  always_wrap: []
+  
+  # If true, the argument lists which are known to be sortable
+  # will be sorted lexicographically
+  enable_sort: true
+
+lint:
+
+  # A list of lint codes to disable
+  disabled_codes: []
+
+parse:
+
+  additional_commands:
+    add_clang_format_version:
+      kwargs:
+        MAJOR: 1
+        COMMIT: 1
+        MD5: 1
+        DEPENDS_ON: 1
