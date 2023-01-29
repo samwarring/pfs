@@ -26,7 +26,6 @@
             "name": "windows",
             "inherits": "base",
             "hidden": true,
-            "generator": "Ninja",
             "architecture": {
                 "value": "x64",
                 "strategy": "external"
@@ -46,6 +45,16 @@
             }
         },
         {
+            "name": "linux",
+            "inherits": "base",
+            "hidden": true,
+            "condition": {
+                "type": "equals",
+                "lhs": "${hostSystemName}",
+                "rhs": "Linux"
+            }
+        },
+        {
             "name": "windows-debug",
             "displayName": "Windows Debug",
             "inherits": [
@@ -58,6 +67,22 @@
             "displayName": "Windows Release",
             "inherits": [
                 "windows",
+                "release"
+            ]
+        },
+        {
+            "name": "linux-debug",
+            "displayName": "Linux Debug",
+            "inherits": [
+                "linux",
+                "debug"
+            ]
+        },
+        {
+            "name": "linux-release",
+            "displayName": "Linux Release",
+            "inherits": [
+                "linux",
                 "release"
             ]
         }
