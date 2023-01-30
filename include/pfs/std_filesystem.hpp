@@ -5,7 +5,12 @@
 
 namespace pfs {
 
-class std_filesystem final : public filesystem {};
+class std_filesystem final : public filesystem {
+public:
+  file_status status(const path &p) const override {
+    return std::filesystem::status(p);
+  }
+};
 
 } // namespace pfs
 
