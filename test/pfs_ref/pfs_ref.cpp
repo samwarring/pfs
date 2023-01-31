@@ -143,6 +143,24 @@ struct subcommand_exists : public subcommand {
   }
 };
 
+struct subcommand_is_directory : public subcommand {
+  std::string path;
+
+  subcommand_is_directory(CLI::App &app) : subcommand(app, "is_directory") {
+    parser->add_option("path", path)
+        ->description("Checks if the provided path is a directory");
+  }
+
+  void run() override {
+    std::cout << "\nis_directory(\"" << path << "\"): ";
+    try {
+      std::cout << std::filesystem::is_directory(path) << '\n';
+    } catch (const std::filesystem::filesystem_error &e) {
+      std::cout << e << '\n';
+    }
+  }
+};
+
 int main(int argc, char **argv) {
 
   CLI::App app{"Peforms arbitrary std::filesystem operations, so their "
@@ -153,7 +171,8 @@ int main(int argc, char **argv) {
       std::make_unique<subcommand_current_path>(app),
       std::make_unique<subcommand_create_directory>(app),
       std::make_unique<subcommand_create_directories>(app),
-      std::make_unique<subcommand_exists>(app)};
+      std::make_unique<subcommand_exists>(app),
+      std::make_unique<subcommand_is_directory>(app)};
 
   CLI11_PARSE(app, argc, argv);
 

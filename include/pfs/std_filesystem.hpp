@@ -34,6 +34,14 @@ public:
   bool exists(const path &p, error_code &ec) const noexcept override {
     return std::filesystem::exists(p, ec);
   }
+
+  bool is_directory(const path &p) const override {
+    return std::filesystem::is_directory(p);
+  }
+
+  bool is_directory(const path &p, error_code &ec) const noexcept override {
+    return std::filesystem::is_directory(p);
+  }
 };
 
 } // namespace pfs

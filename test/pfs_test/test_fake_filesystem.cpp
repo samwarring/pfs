@@ -49,4 +49,13 @@ TEST_CASE("fake_filesystem") {
     REQUIRE(fs.exists("/let/it"));
     REQUIRE(fs.exists("/let/it/be"));
   }
+
+  SECTION("is_directory") {
+    REQUIRE(fs.is_directory("/"));
+    REQUIRE(!fs.is_directory("/hey"));
+    REQUIRE(!fs.is_directory("/hey/jude"));
+    REQUIRE(fs.create_directories("/hey/jude"));
+    REQUIRE(fs.is_directory("/hey"));
+    REQUIRE(fs.is_directory("/hey/jude"));
+  }
 }

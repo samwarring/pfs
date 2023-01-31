@@ -20,6 +20,8 @@ public:
   virtual bool create_directories(const path &p, error_code &ec) noexcept = 0;
   virtual bool exists(const path &p) const = 0;
   virtual bool exists(const path &p, error_code &ec) const noexcept = 0;
+  virtual bool is_directory(const path &p) const = 0;
+  virtual bool is_directory(const path &p, error_code &ec) const noexcept = 0;
 };
 
 } // namespace pfs

@@ -253,14 +253,12 @@ public:
   }
 
   bool exists(const path &p, error_code &ec) const noexcept override {
+    ec.clear();
     if (p.empty()) {
       // Special case. Path is empty string.
-      ec.clear();
       return false;
     }
-    auto n = find_node(p);
-    ec.clear();
-    return n != nullptr;
+    return find_node(p) != nullptr;
   }
 
   bool exists(const path &p) const override {
@@ -268,6 +266,25 @@ public:
     bool ret = exists(p, ec);
     if (ec) {
       throw filesystem_error("exists", ec);
+    }
+    return ret;
+  }
+
+  bool is_directory(const path &p, error_code &ec) const noexcept override {
+    ec.clear();
+    if (p.empty()) {
+      // Special case. Path is empty string.
+      return false;
+    }
+    auto n = find_node(p);
+    return n && n->type == file_type::directory;
+  }
+
+  bool is_directory(const path &p) const override {
+    error_code ec;
+    bool ret = is_directory(p, ec);
+    if (ec) {
+      throw filesystem_error("is_directory", ec);
     }
     return ret;
   }
