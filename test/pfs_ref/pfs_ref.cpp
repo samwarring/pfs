@@ -39,7 +39,10 @@ struct subcommand_current_path : public subcommand {
   std::string set_path;
 
   subcommand_current_path(CLI::App &app) : subcommand(app, "current_path") {
-    parser->add_option("--set", set_path)->option_text("PATH");
+    parser->add_option("--set", set_path)
+        ->option_text("PATH")
+        ->description(
+            "Additionally, try to set current directory to this path.");
   }
 
   void run() override {
@@ -57,13 +60,34 @@ struct subcommand_current_path : public subcommand {
   }
 };
 
+struct subcommand_create_directory : public subcommand {
+  std::string dir_path;
+
+  subcommand_create_directory(CLI::App &app)
+      : subcommand(app, "create_directory") {
+    parser->add_option("path", dir_path)
+        ->description("Attempt to create a directory at this path.");
+  }
+
+  void run() override {
+    std::cout << "\ncreate_directory(\"" << dir_path << "\"): ";
+    try {
+      bool created = std::filesystem::create_directory(dir_path);
+      std::cout << (created ? "true" : "false") << '\n';
+    } catch (const std::filesystem::filesystem_error &e) {
+      std::cout << e << '\n';
+    }
+  }
+};
+
 int main(int argc, char **argv) {
 
   CLI::App app{"Peforms arbitrary std::filesystem operations, so their "
                "behavior can be replicated in pfs."};
 
   std::unique_ptr<subcommand> subcommands[]{
-      std::make_unique<subcommand_current_path>(app)};
+      std::make_unique<subcommand_current_path>(app),
+      std::make_unique<subcommand_create_directory>(app)};
 
   CLI11_PARSE(app, argc, argv);
 
