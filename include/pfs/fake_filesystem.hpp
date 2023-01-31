@@ -105,6 +105,8 @@ public:
     const node *n = find_node(p);
     if (n) {
       s.type(n->type);
+    } else {
+      s.type(file_type::not_found);
     }
     return s;
   }

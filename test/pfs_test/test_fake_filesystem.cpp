@@ -5,9 +5,12 @@ TEST_CASE("fake_filesystem") {
   pfs::fake_filesystem fs;
   REQUIRE(fs.create_root(""));
 
+  SECTION("status of nonexistent path") {
+    REQUIRE(fs.status("/does/not/exist").type() == pfs::file_type::not_found);
+  }
+
   SECTION("root directory") {
-    auto status = fs.status("/");
-    REQUIRE(status.type() == pfs::file_type::directory);
+    REQUIRE(fs.status("/").type() == pfs::file_type::directory);
   }
 
   SECTION("create directory") {
