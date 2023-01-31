@@ -9,4 +9,14 @@ TEST_CASE("fake_filesystem") {
     auto status = fs.status("/");
     REQUIRE(status.type() == pfs::file_type::directory);
   }
+
+  SECTION("create directory") {
+    REQUIRE(fs.create_directory("/hello"));
+    REQUIRE(!fs.create_directory("/hello"));
+    REQUIRE(fs.status("/hello").type() == pfs::file_type::directory);
+    REQUIRE(fs.create_directory("/hello/goodbye"));
+    REQUIRE(!fs.create_directory("/hello/goodbye"));
+    REQUIRE(fs.status("/hello/goodbye").type() == pfs::file_type::directory);
+    REQUIRE(!fs.create_directory("/parent/path/does/not/exist"));
+  }
 }

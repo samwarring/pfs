@@ -22,7 +22,6 @@ private:
    * @pre The argument is an absolute path.
    *
    * @param p path object.
-   *
    * @return pointer to the root node, or nullptr if not found.
    */
   const node *find_root(const path &p) const {
@@ -39,7 +38,6 @@ private:
    * @pre The argument is an absolute path.
    *
    * @param p path object.
-   *
    * @return pointer to the filesystem node, or nullptr if not found.
    */
   const node *find_node(const path &p) const {
@@ -47,26 +45,38 @@ private:
     if (!n) {
       return nullptr;
     }
-
     auto it = p.begin();
     if (!p.root_name().empty()) {
       // Skip past the root name.
       ++it;
     }
+    return find_node(++it, p.end(), *n);
+  }
 
-    // Skip past the root directory.
-    ++it;
-
-    // Iterate through remaining path.
-    for (; it != p.end(); ++it) {
-      auto dent = n->dents.find(it->string());
-      if (dent == n->dents.end()) {
-        return nullptr;
-      }
-      n = dent->second.get();
+  /**
+   * @brief Finds a node in the filesystem from a path.
+   *
+   * @details This can be used to lookup relative paths if @c n is the current
+   * working directory, and @c it is the beginning of the relative path. If the
+   * initial path is absolute, then the initial iterator @c it should start from
+   * the root directory, skipping past the root_name if present.
+   *
+   * @param it Iterator through the path compoments.
+   * @param end End of the path, as an iterator.
+   * @param n Begin search from this node in the filesystem.
+   * @return Pointer to the requested node if found, or nullptr if not found.
+   */
+  const node *find_node(path::const_iterator it, path::const_iterator end,
+                        const node &n) const {
+    if (it == end) {
+      return &n;
     }
-
-    return n;
+    auto dent = n.dents.find(it->string());
+    if (dent == n.dents.end()) {
+      // next part of path not found under this node.
+      return nullptr;
+    }
+    return find_node(++it, end, *dent->second);
   }
 
 public:
@@ -80,7 +90,6 @@ public:
    *
    * @param root_name To simulate a Windows filesystem, this can be "C:". To
    * simulate a POSIX filesystem, this can be an empty string.
-   *
    * @return true if the root was created, or false if it already existed.
    */
   bool create_root(std::string root_name) {
@@ -98,6 +107,43 @@ public:
       s.type(n->type);
     }
     return s;
+  }
+
+  bool create_directory(const path &p, error_code &ec) noexcept override {
+    // todo: assume absolute path for now.
+    const node *n = find_node(p.parent_path());
+    if (!n) {
+      // Parent path does not exist. Not an error, but no directory created.
+      ec.clear();
+      return false;
+    }
+    auto target = n->dents.find(p.stem().string());
+    if (target != n->dents.end()) {
+      if (target->second->type == file_type::directory) {
+        // Directory already exists.
+        ec.clear();
+        return false;
+      } else {
+        // Target path exists, but it's not a directory.
+        ec = std::make_error_code(std::errc::not_a_directory);
+        return false;
+      }
+    }
+    // Target path does not exist. Make the directory.
+    auto new_dir = std::make_shared<node>();
+    new_dir->type = file_type::directory;
+    const_cast<node *>(n)->dents[p.stem().string()] = new_dir;
+    ec.clear();
+    return true;
+  }
+
+  bool create_directory(const path &p) override {
+    error_code ec;
+    bool ret = create_directory(p, ec);
+    if (ec) {
+      throw filesystem_error("create_directory", ec);
+    }
+    return ret;
   }
 };
 

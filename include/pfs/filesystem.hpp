@@ -8,11 +8,14 @@ namespace pfs {
 using std::error_code;
 using std::filesystem::file_status;
 using std::filesystem::file_type;
+using std::filesystem::filesystem_error;
 using std::filesystem::path;
 
 class filesystem {
 public:
   virtual file_status status(const path &p) const = 0;
+  virtual bool create_directory(const path &p) = 0;
+  virtual bool create_directory(const path &p, error_code &ec) noexcept = 0;
 };
 
 } // namespace pfs
