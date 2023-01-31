@@ -154,17 +154,6 @@ public:
   }
 
 public:
-  file_status status(const path &p) const override {
-    file_status s;
-    const node *n = find_node(p);
-    if (n) {
-      s.type(n->type);
-    } else {
-      s.type(file_type::not_found);
-    }
-    return s;
-  }
-
   bool create_directory(const path &p, error_code &ec) noexcept override {
     // todo: assume absolute path for now.
     if (p.empty()) {
@@ -287,6 +276,17 @@ public:
       throw filesystem_error("is_directory", ec);
     }
     return ret;
+  }
+
+  file_status status(const path &p) const override {
+    file_status s;
+    const node *n = find_node(p);
+    if (n) {
+      s.type(n->type);
+    } else {
+      s.type(file_type::not_found);
+    }
+    return s;
   }
 };
 

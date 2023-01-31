@@ -7,10 +7,6 @@ namespace pfs {
 
 class std_filesystem final : public filesystem {
 public:
-  file_status status(const path &p) const override {
-    return std::filesystem::status(p);
-  }
-
   bool create_directory(const path &p) override {
     return std::filesystem::create_directory(p);
   }
@@ -41,6 +37,10 @@ public:
 
   bool is_directory(const path &p, error_code &ec) const noexcept override {
     return std::filesystem::is_directory(p);
+  }
+
+  file_status status(const path &p) const override {
+    return std::filesystem::status(p);
   }
 };
 

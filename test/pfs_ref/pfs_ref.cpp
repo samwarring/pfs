@@ -15,6 +15,59 @@ std::ostream &operator<<(std::ostream &out,
   return out;
 }
 
+std::ostream &operator<<(std::ostream &out, std::filesystem::file_type t) {
+  using ft = std::filesystem::file_type;
+  switch (t) {
+  case ft::none:
+    return out << "none";
+  case ft::not_found:
+    return out << "not_found";
+  case ft::regular:
+    return out << "regular";
+  case ft::directory:
+    return out << "directory";
+  case ft::symlink:
+    return out << "symlink";
+  case ft::block:
+    return out << "block";
+  case ft::character:
+    return out << "character";
+  case ft::fifo:
+    return out << "fifo";
+  case ft::socket:
+    return out << "socket";
+  case ft::unknown:
+    return out << "unkown";
+  default:
+    return out << "default";
+  }
+}
+
+std::ostream &operator<<(std::ostream &out, std::filesystem::perms p) {
+  // credit: https://en.cppreference.com/w/cpp/filesystem/perms
+  using std::filesystem::perms;
+  auto show = [&](char op, perms perm) {
+    out << (perms::none == (perm & p) ? '-' : op);
+  };
+  show('r', perms::owner_read);
+  show('w', perms::owner_write);
+  show('x', perms::owner_exec);
+  show('r', perms::group_read);
+  show('w', perms::group_write);
+  show('x', perms::group_exec);
+  show('r', perms::others_read);
+  show('w', perms::others_write);
+  show('x', perms::others_exec);
+  return out;
+}
+
+std::ostream &operator<<(std::ostream &out, std::filesystem::file_status s) {
+  out << "file_status:\n"
+      << "type: " << s.type() << '\n'
+      << "permissions: " << s.permissions();
+  return out;
+}
+
 class subcommand {
 protected:
   CLI::App *parser;
@@ -161,6 +214,25 @@ struct subcommand_is_directory : public subcommand {
   }
 };
 
+struct subcommand_status : public subcommand {
+  std::string path;
+
+  subcommand_status(CLI::App &app) : subcommand(app, "status") {
+    parser->add_option("path", path)
+        ->description(
+            "Gets the status of the file/directory at the given path.");
+  }
+
+  void run() override {
+    std::cout << "\nstatus(\"" << path << "\"): ";
+    try {
+      std::cout << std::filesystem::status(path) << '\n';
+    } catch (const std::filesystem::filesystem_error &e) {
+      std::cout << e << '\n';
+    }
+  }
+};
+
 int main(int argc, char **argv) {
 
   CLI::App app{"Peforms arbitrary std::filesystem operations, so their "
@@ -172,7 +244,8 @@ int main(int argc, char **argv) {
       std::make_unique<subcommand_create_directory>(app),
       std::make_unique<subcommand_create_directories>(app),
       std::make_unique<subcommand_exists>(app),
-      std::make_unique<subcommand_is_directory>(app)};
+      std::make_unique<subcommand_is_directory>(app),
+      std::make_unique<subcommand_status>(app)};
 
   CLI11_PARSE(app, argc, argv);
 
