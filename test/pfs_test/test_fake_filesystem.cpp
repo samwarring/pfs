@@ -21,5 +21,9 @@ TEST_CASE("fake_filesystem") {
     REQUIRE(!fs.create_directory("/hello/goodbye"));
     REQUIRE(fs.status("/hello/goodbye").type() == pfs::file_type::directory);
     REQUIRE(!fs.create_directory("/parent/path/does/not/exist"));
+
+    std::error_code ec;
+    REQUIRE(!fs.create_directory("", ec));
+    REQUIRE(ec == std::errc::no_such_file_or_directory);
   }
 }

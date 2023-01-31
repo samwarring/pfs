@@ -113,6 +113,11 @@ public:
 
   bool create_directory(const path &p, error_code &ec) noexcept override {
     // todo: assume absolute path for now.
+    if (p.empty()) {
+      // Special case. Path is empty string.
+      ec = std::make_error_code(std::errc::no_such_file_or_directory);
+      return false;
+    }
     const node *n = find_node(p.parent_path());
     if (!n) {
       // Parent path does not exist. Not an error, but no directory created.
