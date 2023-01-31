@@ -26,4 +26,17 @@ TEST_CASE("fake_filesystem") {
     REQUIRE(!fs.create_directory("", ec));
     REQUIRE(ec == std::errc::no_such_file_or_directory);
   }
+
+  SECTION("create_directories") {
+    REQUIRE(fs.create_directories("/you/say/goodbye/i/say/hello"));
+    REQUIRE(!fs.create_directories("/you/say/goodbye/i/say/hello"));
+    REQUIRE(!fs.create_directories("X:"));
+    REQUIRE(!fs.create_directories("X:/"));
+
+    std::error_code ec;
+    REQUIRE(!fs.create_directories("", ec));
+    REQUIRE(ec == std::errc::no_such_file_or_directory);
+    REQUIRE(!fs.create_directories("X:/bad/root", ec));
+    REQUIRE(ec == std::errc::no_such_file_or_directory);
+  }
 }

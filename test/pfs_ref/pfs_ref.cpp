@@ -95,12 +95,31 @@ struct subcommand_create_directory : public subcommand {
   void run() override {
     std::cout << "\ncreate_directory(\"" << dir_path << "\"): ";
     try {
-      bool created = std::filesystem::create_directory(dir_path);
-      std::cout << (created ? "true" : "false") << '\n';
+      std::cout << std::filesystem::create_directory(dir_path) << '\n';
     } catch (const std::filesystem::filesystem_error &e) {
       std::cout << e << '\n';
       std::cout << "  compare to errc::no_such_file_or_directory: "
                 << (e.code() == std::errc::no_such_file_or_directory) << '\n';
+    }
+  }
+};
+
+struct subcommand_create_directories : public subcommand {
+  std::string dir_path;
+
+  subcommand_create_directories(CLI::App &app)
+      : subcommand(app, "create_directories") {
+    parser->add_option("path", dir_path)
+        ->description("Attempt to create a directory at this path. Create all "
+                      "directories along the path that do not exist.");
+  }
+
+  void run() override {
+    std::cout << "\ncreate_directories(\"" << dir_path << "\"): ";
+    try {
+      std::cout << std::filesystem::create_directories(dir_path) << '\n';
+    } catch (const std::filesystem::filesystem_error &e) {
+      std::cout << e << '\n';
     }
   }
 };
@@ -113,7 +132,8 @@ int main(int argc, char **argv) {
   std::unique_ptr<subcommand> subcommands[]{
       std::make_unique<subcommand_path>(app),
       std::make_unique<subcommand_current_path>(app),
-      std::make_unique<subcommand_create_directory>(app)};
+      std::make_unique<subcommand_create_directory>(app),
+      std::make_unique<subcommand_create_directories>(app)};
 
   CLI11_PARSE(app, argc, argv);
 

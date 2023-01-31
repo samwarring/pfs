@@ -18,6 +18,14 @@ public:
   bool create_directory(const path &p, error_code &ec) noexcept override {
     return std::filesystem::create_directory(p, ec);
   }
+
+  bool create_directories(const path &p) override {
+    return std::filesystem::create_directories(p);
+  }
+
+  bool create_directories(const path &p, error_code &ec) noexcept override {
+    return std::filesystem::create_directories(p, ec);
+  }
 };
 
 } // namespace pfs
