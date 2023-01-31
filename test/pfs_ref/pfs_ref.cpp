@@ -35,6 +35,29 @@ public:
   }
 };
 
+struct subcommand_path : public subcommand {
+  std::string path;
+
+  subcommand_path(CLI::App &app) : subcommand(app, "path") {
+    parser->add_option("path", path)
+        ->description("Examine the argument as an std::path");
+  }
+
+  void run() override {
+    std::filesystem::path p(path);
+    std::cout << "\nroot_name: " << p.root_name() << '\n'
+              << "root_directory: " << p.root_directory() << '\n'
+              << "relative_path: " << p.relative_path() << '\n'
+              << "stem: " << p.stem() << '\n'
+              << "extension: " << p.extension() << '\n'
+              << "iteration: ";
+    for (auto part : p) {
+      std::cout << part << ' ';
+    }
+    std::cout << '\n';
+  }
+};
+
 struct subcommand_current_path : public subcommand {
   std::string set_path;
 
@@ -76,6 +99,8 @@ struct subcommand_create_directory : public subcommand {
       std::cout << (created ? "true" : "false") << '\n';
     } catch (const std::filesystem::filesystem_error &e) {
       std::cout << e << '\n';
+      std::cout << "  compare to errc::no_such_file_or_directory: "
+                << (e.code() == std::errc::no_such_file_or_directory) << '\n';
     }
   }
 };
@@ -86,6 +111,7 @@ int main(int argc, char **argv) {
                "behavior can be replicated in pfs."};
 
   std::unique_ptr<subcommand> subcommands[]{
+      std::make_unique<subcommand_path>(app),
       std::make_unique<subcommand_current_path>(app),
       std::make_unique<subcommand_create_directory>(app)};
 
@@ -94,4 +120,5 @@ int main(int argc, char **argv) {
   for (auto &s : subcommands) {
     s->run_if_parsed();
   }
+  std::cout << '\n';
 }
