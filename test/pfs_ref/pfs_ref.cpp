@@ -22,6 +22,7 @@ protected:
 public:
   subcommand(CLI::App &parent_parser, std::string name) {
     parser = parent_parser.add_subcommand(name);
+    parser->allow_windows_style_options(false);
   }
 
   virtual ~subcommand() {}
@@ -124,6 +125,24 @@ struct subcommand_create_directories : public subcommand {
   }
 };
 
+struct subcommand_exists : public subcommand {
+  std::string path;
+
+  subcommand_exists(CLI::App &app) : subcommand(app, "exists") {
+    parser->add_option("path", path)
+        ->description("Checks if the provided path exists");
+  }
+
+  void run() override {
+    std::cout << "\nexists(\"" << path << "\"): ";
+    try {
+      std::cout << std::filesystem::exists(path) << '\n';
+    } catch (const std::filesystem::filesystem_error &e) {
+      std::cout << e << '\n';
+    }
+  }
+};
+
 int main(int argc, char **argv) {
 
   CLI::App app{"Peforms arbitrary std::filesystem operations, so their "
@@ -133,7 +152,8 @@ int main(int argc, char **argv) {
       std::make_unique<subcommand_path>(app),
       std::make_unique<subcommand_current_path>(app),
       std::make_unique<subcommand_create_directory>(app),
-      std::make_unique<subcommand_create_directories>(app)};
+      std::make_unique<subcommand_create_directories>(app),
+      std::make_unique<subcommand_exists>(app)};
 
   CLI11_PARSE(app, argc, argv);
 

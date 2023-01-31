@@ -84,6 +84,8 @@ private:
    * @brief Similar to @ref find_node, but returns the longest existing path if
    * the requested node does not exist.
    *
+   * @pre The argment is an absolute path.
+   *
    * @param p Finds node corresponding to this path.
    * @return A Pair of values. (First) If the path exists, node for the path; if
    * the path does not exist, the deepest existing node along the path; if the
@@ -102,7 +104,7 @@ private:
       // Skip past the root name.
       ++it;
     }
-    return find_deepest_existing_node(it, p.end(), *n);
+    return find_deepest_existing_node(++it, p.end(), *n);
   }
 
   /**
@@ -246,6 +248,26 @@ public:
     bool ret = create_directories(p, ec);
     if (ec) {
       throw filesystem_error("create_directories", ec);
+    }
+    return ret;
+  }
+
+  bool exists(const path &p, error_code &ec) const noexcept override {
+    if (p.empty()) {
+      // Special case. Path is empty string.
+      ec.clear();
+      return false;
+    }
+    auto n = find_node(p);
+    ec.clear();
+    return n != nullptr;
+  }
+
+  bool exists(const path &p) const override {
+    error_code ec;
+    bool ret = exists(p, ec);
+    if (ec) {
+      throw filesystem_error("exists", ec);
     }
     return ret;
   }

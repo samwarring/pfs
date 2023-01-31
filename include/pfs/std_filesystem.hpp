@@ -26,6 +26,14 @@ public:
   bool create_directories(const path &p, error_code &ec) noexcept override {
     return std::filesystem::create_directories(p, ec);
   }
+
+  bool exists(const path &p) const override {
+    return std::filesystem::exists(p);
+  }
+
+  bool exists(const path &p, error_code &ec) const noexcept override {
+    return std::filesystem::exists(p, ec);
+  }
 };
 
 } // namespace pfs

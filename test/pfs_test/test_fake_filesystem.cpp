@@ -39,4 +39,14 @@ TEST_CASE("fake_filesystem") {
     REQUIRE(!fs.create_directories("X:/bad/root", ec));
     REQUIRE(ec == std::errc::no_such_file_or_directory);
   }
+
+  SECTION("exists") {
+    REQUIRE(!fs.exists("/let"));
+    REQUIRE(!fs.exists("/let/it"));
+    REQUIRE(!fs.exists("/let/it/be"));
+    REQUIRE(fs.create_directories("/let/it/be"));
+    REQUIRE(fs.exists("/let"));
+    REQUIRE(fs.exists("/let/it"));
+    REQUIRE(fs.exists("/let/it/be"));
+  }
 }
