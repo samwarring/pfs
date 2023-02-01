@@ -137,20 +137,66 @@ public:
   /**
    * @brief Adds a new root to the filesystem.
    *
-   * @details std::filesystem defines the concept of "root name" for all path
-   * objects, separate from the root directory. On Windows, the root name can
-   * be "C:" or "//myserver". On linux, the root name is an empty string. The
-   * fake filesystem must contain a root before any paths can be added to it.
+   * @details If the current platform is POSIX, this function is meaningless
+   * because it only allows a root name of "" (empty string). If the current
+   * platform is Windows, this function allows adding additional drive letters,
+   * each with their own root directory.
    *
-   * @param root_name To simulate a Windows filesystem, this can be "C:". To
-   * simulate a POSIX filesystem, this can be an empty string.
+   * @param root_name If compiling on Windows, must consist of a drive-letter
+   * followed by colon (e.g. "D:"). If compiling on POSIX, must be an empty
+   * string. The parameter must not contain a root directory or relative path.
    * @return true if the root was created, or false if it already existed.
+   * @throw std::invalid_argument if @c root_name is not a valid root for the
+   * current platform.
    */
-  bool create_root(std::string root_name) {
+  bool create_root(const path &root_name) {
+    bool is_root_only = false;
+#ifdef _WIN32
+    is_root_only = !root_name.root_name().empty() &&
+                   root_name.root_directory().empty() &&
+                   root_name.relative_path().empty();
+#else
+    is_root_only = root_name.empty();
+#endif
+    if (!is_root_only) {
+      throw std::invalid_argument(
+          "\"" + root_name.string() +
+          "\" is not a valid root name for this platform");
+    }
+
     node root_dir;
     root_dir.type = file_type::directory;
-    auto [iter, inserted] = roots_.try_emplace(std::move(root_name), root_dir);
+    auto [iter, inserted] = roots_.try_emplace(root_name.string(), root_dir);
     return inserted;
+  }
+
+  /**
+   * @brief Gets path to the default root directory for the current platform.
+   * @return path containing optional root name (on Windows, "C:"), and root
+   * directory.
+   */
+  path default_root() const {
+#ifdef _WIN32
+    return "C:\\";
+#else
+    return "/";
+#endif
+  }
+
+  /**
+   * @brief Constructs a new fake filesystem.
+   *
+   * @details The new filesystem consists only of a optional root name (in the
+   * case of Windows, "C:") with a root directory. The root directory is
+   * initially empty.
+   */
+  fake_filesystem() {
+#ifdef _WIN32
+    path root_name = "C:";
+#else
+    path root_name;
+#endif
+    create_root(root_name);
   }
 
 public:
