@@ -29,6 +29,7 @@ private:
    * @brief Adds a node to the sorted node list.
    *
    * @pre The node list is sorted alphabetically by node name.
+   * @post The node list is sorted alphabetically by node name.
    *
    * @param l Node list to be modified.
    * @param n Node to insert.
@@ -100,6 +101,19 @@ private:
     }
   }
 
+  /**
+   * @brief Traverses the node tree along the given path.
+   *
+   * @details If the input path @c p is relative, then traversal begins from the
+   * current working directory. If it's absolute, then traversal begins from the
+   * "meta"-root. If the input path does not exist in the filesystem, this will
+   * traverse through the path until the next part does not exist.
+   *
+   * @param p Path to traverse.
+   * @return A pair of values: (1) A list - starting with the meta-node - of
+   * every existing node in the path. (2) An iterator into @c p of the next part
+   * of the path that did not exist in the node tree.
+   */
   std::pair<node_list, path::const_iterator> traverse(const path &p) const {
     node_list node_path;
     if (p.is_absolute()) {
