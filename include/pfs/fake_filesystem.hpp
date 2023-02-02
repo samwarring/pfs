@@ -22,6 +22,8 @@ private:
   };
 
   std::shared_ptr<node> meta_root_;
+  node_list cwd_nodes_;
+  path cwd_;
 
   /**
    * @brief Adds a node to the sorted node list.
@@ -139,9 +141,22 @@ public:
     root_dir_node->name = "\\";
     root_dir_node->type = file_type::directory;
     root_node->dents.push_back(std::make_shared<node>());
+
+    // If cwd not set, set it now.
+    if (cwd_.empty()) {
+      cwd_ = root_name / "\\";
+      cwd_nodes_.push_back(root_node);
+      cwd_nodes_.push_back(root_dir_node);
+    }
 #else
     // This node represents the root directory.
     root_node->name = "/";
+
+    // If cwd not set, set it now.
+    if (cwd_.empty()) {
+      cwd_ = "/";
+      cwd_nodes_.push_back(root_node);
+    }
 #endif
 
     auto existing_root = find_node(meta_root_->dents, root_node->name);
