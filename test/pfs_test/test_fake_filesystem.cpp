@@ -22,10 +22,11 @@ TEST_CASE("fake_filesystem") {
     REQUIRE(!fs.create_directory(root / "hello/goodbye"));
     REQUIRE(fs.status(root / "hello/goodbye").type() ==
             pfs::file_type::directory);
-    REQUIRE(!fs.create_directory(root / "parent/path/does/not/exist"));
 
     std::error_code ec;
     REQUIRE(!fs.create_directory("", ec));
+    REQUIRE(ec == std::errc::no_such_file_or_directory);
+    REQUIRE(!fs.create_directory(root / "parent/path/does/not/exist", ec));
     REQUIRE(ec == std::errc::no_such_file_or_directory);
   }
 

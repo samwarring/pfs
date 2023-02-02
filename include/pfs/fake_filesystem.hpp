@@ -220,13 +220,7 @@ public:
     }
 
     // Locate the node for the requested path.
-    node_list node_path;
-    if (p.is_absolute()) {
-      node_path.push_back(meta_root_);
-    } else {
-      node_path = cwd_nodes_;
-    }
-    auto pit = traverse(node_path, p.begin(), p.end());
+    auto [node_path, pit] = traverse(p);
 
     if (pit == p.end()) {
       // The path already exists.
@@ -296,6 +290,7 @@ public:
       new_dir->name = *pit;
       new_dir->type = file_type::directory;
       insert_node(parent_node->dents, new_dir);
+      parent_node = new_dir;
     }
     ec.clear();
     return true;
