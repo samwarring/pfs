@@ -147,12 +147,12 @@ public:
     // This node represents the drive.
     root_node->name = root_name;
     root_node->type = file_type::none;
-    auto root_dir_node = std::make_shared<node>();
 
     // This node represents the root directory of the drive.
+    auto root_dir_node = std::make_shared<node>();
     root_dir_node->name = "\\";
     root_dir_node->type = file_type::directory;
-    root_node->dents.push_back(std::make_shared<node>());
+    root_node->dents.push_back(root_dir_node);
 
     // If cwd not set, set it now.
     if (cwd_.empty()) {
