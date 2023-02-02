@@ -90,6 +90,17 @@ private:
       // Empty path. Traversal ends here.
       return pit;
     }
+    if (*pit == ".") {
+      // Traverse the current node for the next part of the path.
+      return traverse(node_path, ++pit, pend);
+    } else if (*pit == "..") {
+      if (node_path.back()->name.root_directory().empty()) {
+        // Last element of the path is NOT the root directory. Safe to pop.
+        // Otherwise, remain in the root directory.
+        node_path.pop_back();
+      }
+      return traverse(node_path, ++pit, pend);
+    }
     auto next = find_node(node_path.back()->dents, *pit);
     if (!next) {
       // Next part of the path not found. Traversal ends here.

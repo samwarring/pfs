@@ -60,7 +60,20 @@ TEST_CASE("fake_filesystem") {
   SECTION("current_path") {
     REQUIRE(fs.create_directories(root / "one/two/three"));
     REQUIRE_NOTHROW(fs.current_path(root / "one/two"));
+    REQUIRE(fs.create_directories("four"));
     REQUIRE(fs.exists("three"));
+    REQUIRE(fs.exists("four"));
     REQUIRE(fs.is_directory("three"));
+    REQUIRE(fs.is_directory("four"));
+  }
+
+  SECTION("special directories . and ..") {
+    REQUIRE(fs.create_directories(root / "one/two/three"));
+    REQUIRE_NOTHROW(fs.current_path("one/two"));
+    REQUIRE(fs.is_directory("."));     // '/one/two'
+    REQUIRE(fs.is_directory(".."));    // '/one'
+    REQUIRE(fs.is_directory("../..")); // '/'
+    REQUIRE(fs.create_directories("../newdir/foo"));
+    REQUIRE(fs.is_directory(root / "one/newdir/foo"));
   }
 }
