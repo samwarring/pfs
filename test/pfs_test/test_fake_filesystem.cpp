@@ -56,4 +56,11 @@ TEST_CASE("fake_filesystem") {
     REQUIRE(fs.is_directory(root / "hey"));
     REQUIRE(fs.is_directory(root / "hey/jude"));
   }
+
+  SECTION("current_path") {
+    REQUIRE(fs.create_directories(root / "one/two/three"));
+    REQUIRE_NOTHROW(fs.current_path(root / "one/two"));
+    REQUIRE(fs.exists("three"));
+    REQUIRE(fs.is_directory("three"));
+  }
 }

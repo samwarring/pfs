@@ -319,6 +319,40 @@ public:
     return ret;
   }
 
+  path current_path(error_code &ec) const noexcept {
+    ec.clear();
+    return cwd_;
+  }
+
+  path current_path() const { return cwd_; }
+
+  void current_path(const path &p, error_code &ec) noexcept {
+    if (p.empty()) {
+      ec = std::make_error_code(std::errc::no_such_file_or_directory);
+      return;
+    }
+
+    auto [node_path, pit] = traverse(p);
+    if (pit == p.end()) {
+      // Path exists
+      if (node_path.back()->type == file_type::directory) {
+        cwd_ = p;
+        cwd_nodes_ = std::move(node_path);
+      } else {
+        ec = std::make_error_code(std::errc::no_such_file_or_directory);
+      }
+      return;
+    }
+  }
+
+  void current_path(const path &p) {
+    error_code ec;
+    current_path(p, ec);
+    if (ec) {
+      throw filesystem_error("current_path", ec);
+    }
+  }
+
   bool exists(const path &p, error_code &ec) const noexcept override {
     ec.clear();
     if (p.empty()) {

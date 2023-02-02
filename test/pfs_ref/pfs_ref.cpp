@@ -116,8 +116,7 @@ struct subcommand_current_path : public subcommand {
   std::string set_path;
 
   subcommand_current_path(CLI::App &app) : subcommand(app, "current_path") {
-    parser->add_option("--set", set_path)
-        ->option_text("PATH")
+    parser->add_option("path", set_path)
         ->description(
             "Additionally, try to set current directory to this path.");
   }
@@ -125,14 +124,12 @@ struct subcommand_current_path : public subcommand {
   void run() override {
     std::cout << "\ncurrent_path(): " << std::filesystem::current_path()
               << "\n";
-    if (parser->count("--set")) {
-      std::cout << "\ncurrent_path(\"" << set_path << "\"): ";
-      try {
-        std::filesystem::current_path(set_path);
-        std::cout << "ok\n";
-      } catch (const std::filesystem::filesystem_error &e) {
-        std::cout << e << '\n';
-      }
+    std::cout << "\ncurrent_path(\"" << set_path << "\"): ";
+    try {
+      std::filesystem::current_path(set_path);
+      std::cout << "ok\n";
+    } catch (const std::filesystem::filesystem_error &e) {
+      std::cout << e << '\n';
     }
   }
 };
