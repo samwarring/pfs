@@ -80,8 +80,8 @@ private:
    * that were traversed.
    * @param pit Iterator to a path that directs the traversal.
    * @param pend Stop traversal when @c pit equals this value.
-   * @return Iterator into the path indicating the deepest component that exists
-   * in the node tree.
+   * @return Iterator into the path indicating the deepest component that does
+   * not exist in the node tree. If the path exists, this will be @c pend.
    */
   static path::const_iterator traverse(node_list &node_path,
                                        path::const_iterator pit,
