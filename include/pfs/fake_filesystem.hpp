@@ -36,14 +36,15 @@ private:
    * found and the input node was not inserted.
    */
   static bool insert_node(node_list &l, std::shared_ptr<node> n) {
-    auto it = std::upper_bound(l.begin(), l.end(), n, [](auto n1, auto n2) {
+    auto it = std::lower_bound(l.begin(), l.end(), n, [](auto n1, auto n2) {
       return n1->name < n2->name;
     });
-    if ((*it)->name == n->name) {
-      return false;
-    } else {
+    if (it == l.end() || (*it)->name != n->name) {
+      // Not found in node list.
       l.insert(it, n);
       return true;
+    } else {
+      return false;
     }
   }
 
