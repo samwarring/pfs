@@ -23,6 +23,18 @@ public:
     return std::filesystem::create_directories(p, ec);
   }
 
+  path current_path() const { return std::filesystem::current_path(); }
+
+  path current_path(error_code &ec) const noexcept {
+    return std::filesystem::current_path(ec);
+  }
+
+  void current_path(const path &p) { std::filesystem::current_path(p); }
+
+  void current_path(const path &p, error_code &ec) noexcept {
+    std::filesystem::current_path(p, ec);
+  }
+
   bool exists(const path &p) const override {
     return std::filesystem::exists(p);
   }

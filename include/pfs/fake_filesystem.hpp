@@ -1,6 +1,7 @@
 #ifndef INCLUDED_PFS_FAKE_FILESYSTEM_HPP
 #define INCLUDED_PFS_FAKE_FILESYSTEM_HPP
 
+#include <algorithm>
 #include <map>
 #include <memory>
 #include <pfs/filesystem.hpp>
@@ -10,127 +11,129 @@ namespace pfs {
 
 class fake_filesystem final : public filesystem {
 private:
+  struct node;
+  using node_list = std::vector<std::shared_ptr<node>>;
+
   struct node {
+    path name;
     file_type type;
-    std::map<std::string, std::shared_ptr<node>> dents;
+    bool is_drive;
+    node_list dents;
   };
 
-  std::map<std::string, node> roots_;
+  std::shared_ptr<node> meta_root_;
+  node_list cwd_nodes_;
+  path cwd_;
 
   /**
-   * @brief Gets pointer to the root node for this path.
+   * @brief Adds a node to the sorted node list.
    *
-   * @pre The argument is an absolute path.
+   * @pre The node list is sorted alphabetically by node name.
+   * @post The node list is sorted alphabetically by node name.
    *
-   * @param p path object.
-   * @return pointer to the root node, or nullptr if not found.
+   * @param l Node list to be modified.
+   * @param n Node to insert.
+   * @return true if the node was inserted; false if an equivalent node was
+   * found and the input node was not inserted.
    */
-  const node *find_root(const path &p) const {
-    auto it = roots_.find(p.root_name().string());
-    if (it == roots_.end()) {
+  static bool insert_node(node_list &l, std::shared_ptr<node> n) {
+    auto it = std::lower_bound(l.begin(), l.end(), n, [](auto n1, auto n2) {
+      return n1->name < n2->name;
+    });
+    if (it == l.end() || (*it)->name != n->name) {
+      // Not found in node list.
+      l.insert(it, n);
+      return true;
+    } else {
+      return false;
+    }
+  }
+
+  /**
+   * @brief Finds a node in a sorted node list.
+   *
+   * @pre The node list is sorted alphabetically by node name.
+   *
+   * @param l Node list to be searched.
+   * @param name Name of the node to search for.
+   * @return The found node, or nullptr if not found.
+   */
+  static std::shared_ptr<node> find_node(const node_list &l, const path &name) {
+    auto val = std::make_shared<node>();
+    val->name = name;
+    auto [first, last] =
+        std::equal_range(l.begin(), l.end(), val,
+                         [](auto n1, auto n2) { return n1->name < n2->name; });
+    if (first == last) {
+      // Not found.
       return nullptr;
+    } else {
+      return *first;
     }
-    return &(it->second);
   }
 
   /**
-   * @brief Gets pointer to the node described by this path
+   * @brief Traverses the node tree along a path.
    *
-   * @pre The argument is an absolute path.
-   *
-   * @param p path object.
-   * @return pointer to the filesystem node, or nullptr if not found.
+   * @param node_path The caller initializes this with the node where traversal
+   * begins. When this function returns, it contains the path of existing nodes
+   * that were traversed.
+   * @param pit Iterator to a path that directs the traversal.
+   * @param pend Stop traversal when @c pit equals this value.
+   * @return Iterator into the path indicating the deepest component that does
+   * not exist in the node tree. If the path exists, this will be @c pend.
    */
-  const node *find_node(const path &p) const {
-    const node *n = find_root(p);
-    if (!n) {
-      return nullptr;
+  static path::const_iterator traverse(node_list &node_path,
+                                       path::const_iterator pit,
+                                       path::const_iterator pend) {
+    if (pit == pend) {
+      // Empty path. Traversal ends here.
+      return pit;
     }
-    auto it = p.begin();
-    if (!p.root_name().empty()) {
-      // Skip past the root name.
-      ++it;
+    if (*pit == ".") {
+      // Traverse the current node for the next part of the path.
+      return traverse(node_path, ++pit, pend);
+    } else if (*pit == "..") {
+      if (node_path.back()->name.root_directory().empty()) {
+        // Last element of the path is NOT the root directory. Safe to pop.
+        // Otherwise, remain in the root directory.
+        node_path.pop_back();
+      }
+      return traverse(node_path, ++pit, pend);
     }
-    return find_node(++it, p.end(), *n);
+    auto next = find_node(node_path.back()->dents, *pit);
+    if (!next) {
+      // Next part of the path not found. Traversal ends here.
+      return pit;
+    } else {
+      // Traverse the remainder of the path from the found node.
+      node_path.push_back(next);
+      return traverse(node_path, ++pit, pend);
+    }
   }
 
   /**
-   * @brief Finds a node in the filesystem from a path.
+   * @brief Traverses the node tree along the given path.
    *
-   * @details This can be used to lookup relative paths if @c n is the current
-   * working directory, and @c it is the beginning of the relative path. If the
-   * initial path is absolute, then the initial iterator @c it should start from
-   * the root directory, skipping past the root_name if present.
+   * @details If the input path @c p is relative, then traversal begins from the
+   * current working directory. If it's absolute, then traversal begins from the
+   * "meta"-root. If the input path does not exist in the filesystem, this will
+   * traverse through the path until the next part does not exist.
    *
-   * @param it Iterator through the path compoments.
-   * @param end End of the path, as an iterator.
-   * @param n Begin search from this node in the filesystem.
-   * @return Pointer to the requested node if found, or nullptr if not found.
+   * @param p Path to traverse.
+   * @return A pair of values: (1) A list - starting with the meta-node - of
+   * every existing node in the path. (2) An iterator into @c p of the next part
+   * of the path that did not exist in the node tree.
    */
-  const node *find_node(path::const_iterator it, path::const_iterator end,
-                        const node &n) const {
-    if (it == end) {
-      return &n;
+  std::pair<node_list, path::const_iterator> traverse(const path &p) const {
+    node_list node_path;
+    if (p.is_absolute()) {
+      node_path.push_back(meta_root_);
+    } else {
+      node_path = cwd_nodes_;
     }
-    auto dent = n.dents.find(it->string());
-    if (dent == n.dents.end()) {
-      // Next part of path not found under this node.
-      return nullptr;
-    }
-    return find_node(++it, end, *dent->second);
-  }
-
-  /**
-   * @brief Similar to @ref find_node, but returns the longest existing path if
-   * the requested node does not exist.
-   *
-   * @pre The argment is an absolute path.
-   *
-   * @param p Finds node corresponding to this path.
-   * @return A Pair of values. (First) If the path exists, node for the path; if
-   * the path does not exist, the deepest existing node along the path; if the
-   * root does not exist, nullptr. (Second) Iterator into the path corresponding
-   * to the returned node; if the root was not found, the iterator is undefined
-   * and should be ignored.
-   */
-  std::pair<const node *, path::const_iterator>
-  find_deepest_existing_node(const path &p) const {
-    const node *n = find_root(p);
-    if (!n) {
-      return {nullptr, p.begin()};
-    }
-    auto it = p.begin();
-    if (!p.root_name().empty()) {
-      // Skip past the root name.
-      ++it;
-    }
-    return find_deepest_existing_node(++it, p.end(), *n);
-  }
-
-  /**
-   * @brief Similar to @ref find_node, but returns the longest existing path if
-   * the requested node does not exist.
-   *
-   * @param it Iterator through the path components.
-   * @param end End of the path components.
-   * @param n Begin search from this node in the filesystem.
-   * @return A pair of values: (First) Pointer to the requested node if it
-   * exists, or pointer to the deepest-existing node along the path if the
-   * requested node does not exist. (Second), iterator into the path
-   * corresponding to the returned node.
-   */
-  std::pair<const node *, path::const_iterator>
-  find_deepest_existing_node(path::const_iterator it, path::const_iterator end,
-                             const node &n) const {
-    if (it == end) {
-      return {&n, it};
-    }
-    auto dent = n.dents.find(it->string());
-    if (dent == n.dents.end()) {
-      // Next part of path not found. Return the current node.
-      return {&n, it};
-    }
-    return find_deepest_existing_node(++it, end, *dent->second);
+    auto pit = traverse(node_path, p.begin(), p.end());
+    return {std::move(node_path), pit};
   }
 
 public:
@@ -164,10 +167,43 @@ public:
           "\" is not a valid root name for this platform");
     }
 
-    node root_dir;
-    root_dir.type = file_type::directory;
-    auto [iter, inserted] = roots_.try_emplace(root_name.string(), root_dir);
-    return inserted;
+    auto root_node = std::make_shared<node>();
+#ifdef _WIN32
+    // This node represents the drive.
+    root_node->name = root_name;
+    root_node->type = file_type::none;
+
+    // This node represents the root directory of the drive.
+    auto root_dir_node = std::make_shared<node>();
+    root_dir_node->name = "\\";
+    root_dir_node->type = file_type::directory;
+    root_node->dents.push_back(root_dir_node);
+
+    // If cwd not set, set it now.
+    if (cwd_.empty()) {
+      cwd_ = root_name / "\\";
+      cwd_nodes_.push_back(root_node);
+      cwd_nodes_.push_back(root_dir_node);
+    }
+#else
+    // This node represents the root directory.
+    root_node->name = "/";
+
+    // If cwd not set, set it now.
+    if (cwd_.empty()) {
+      cwd_ = "/";
+      cwd_nodes_.push_back(root_node);
+    }
+#endif
+
+    auto existing_root = find_node(meta_root_->dents, root_node->name);
+    if (existing_root) {
+      // Requested root already exists.
+      return false;
+    } else {
+      insert_node(meta_root_->dents, root_node);
+      return true;
+    }
   }
 
   /**
@@ -191,6 +227,7 @@ public:
    * initially empty.
    */
   fake_filesystem() {
+    meta_root_ = std::make_shared<node>();
 #ifdef _WIN32
     path root_name = "C:";
 #else
@@ -201,36 +238,40 @@ public:
 
 public:
   bool create_directory(const path &p, error_code &ec) noexcept override {
-    // todo: assume absolute path for now.
     if (p.empty()) {
       // Special case. Path is empty string.
       ec = std::make_error_code(std::errc::no_such_file_or_directory);
       return false;
     }
-    const node *n = find_node(p.parent_path());
-    if (!n) {
-      // Parent path does not exist. Not an error, but no directory created.
-      ec.clear();
+
+    // Locate the node for the requested path.
+    auto [node_path, pit] = traverse(p);
+
+    if (pit == p.end()) {
+      // The path already exists.
+      if (node_path.back()->type == file_type::directory) {
+        ec.clear();
+      } else {
+        ec = std::make_error_code(std::errc::not_a_directory);
+      }
       return false;
     }
-    auto target = n->dents.find(p.stem().string());
-    if (target != n->dents.end()) {
-      if (target->second->type == file_type::directory) {
-        // Directory already exists.
+
+    if (++pit == p.end()) {
+      // The parent path already exists.
+      if (node_path.back()->type == file_type::directory) {
+        auto new_dir = std::make_shared<node>();
+        new_dir->type = file_type::directory;
+        new_dir->name = p.stem();
+        insert_node(node_path.back()->dents, new_dir);
         ec.clear();
-        return false;
-      } else {
-        // Target path exists, but it's not a directory.
-        ec = std::make_error_code(std::errc::not_a_directory);
-        return false;
+        return true;
       }
     }
-    // Target path does not exist. Make the directory.
-    auto new_dir = std::make_shared<node>();
-    new_dir->type = file_type::directory;
-    const_cast<node *>(n)->dents[p.stem().string()] = new_dir;
-    ec.clear();
-    return true;
+
+    // Either the parent does not exist, or it is not a directory.
+    ec = std::make_error_code(std::errc::no_such_file_or_directory);
+    return false;
   }
 
   bool create_directory(const path &p) override {
@@ -248,31 +289,33 @@ public:
       ec = std::make_error_code(std::errc::no_such_file_or_directory);
       return false;
     }
-    auto [n, it] = find_deepest_existing_node(p);
-    if (!n && p.relative_path().empty()) {
-      // Special case. If path is non-existent root without any relative path,
-      // it is not an error and no directories are created. (This is the case on
-      // Windows. Need to confirm on POSIX).
-      ec.clear();
-      return false;
-    } else if (!n) {
-      // Root does not exist. This is an error.
-      ec = std::make_error_code(std::errc::no_such_file_or_directory);
-      return false;
-    } else if (n->type != file_type::directory) {
-      // Deepest existing node is not a directory.
-      ec = std::make_error_code(std::errc::not_a_directory);
-      return false;
-    } else if (it == p.end()) {
-      // Requested path is already a directory.
-      ec.clear();
+
+    auto [node_path, pit] = traverse(p);
+    if (pit == p.end()) {
+      // Path already exists.
+      if (node_path.back()->type == file_type::directory) {
+        ec.clear();
+      } else {
+        ec = std::make_error_code(std::errc::not_a_directory);
+      }
       return false;
     }
-    for (; it != p.end(); ++it) {
-      auto next_dir = std::make_shared<node>();
-      next_dir->type = file_type::directory;
-      const_cast<node *>(n)->dents[it->string()] = next_dir;
-      n = next_dir.get();
+
+    if (node_path.back()->type != file_type::directory) {
+      // Deepest existing node is not a directory. Cannot make additional
+      // directories from here.
+      ec = std::make_error_code(std::errc::no_such_file_or_directory);
+      return false;
+    }
+
+    // Make additional directories.
+    auto parent_node = node_path.back();
+    for (; pit != p.end(); ++pit) {
+      auto new_dir = std::make_shared<node>();
+      new_dir->name = *pit;
+      new_dir->type = file_type::directory;
+      insert_node(parent_node->dents, new_dir);
+      parent_node = new_dir;
     }
     ec.clear();
     return true;
@@ -287,13 +330,48 @@ public:
     return ret;
   }
 
+  path current_path(error_code &ec) const noexcept {
+    ec.clear();
+    return cwd_;
+  }
+
+  path current_path() const { return cwd_; }
+
+  void current_path(const path &p, error_code &ec) noexcept {
+    if (p.empty()) {
+      ec = std::make_error_code(std::errc::no_such_file_or_directory);
+      return;
+    }
+
+    auto [node_path, pit] = traverse(p);
+    if (pit == p.end()) {
+      // Path exists
+      if (node_path.back()->type == file_type::directory) {
+        cwd_ = p;
+        cwd_nodes_ = std::move(node_path);
+      } else {
+        ec = std::make_error_code(std::errc::no_such_file_or_directory);
+      }
+      return;
+    }
+  }
+
+  void current_path(const path &p) {
+    error_code ec;
+    current_path(p, ec);
+    if (ec) {
+      throw filesystem_error("current_path", ec);
+    }
+  }
+
   bool exists(const path &p, error_code &ec) const noexcept override {
     ec.clear();
     if (p.empty()) {
       // Special case. Path is empty string.
       return false;
     }
-    return find_node(p) != nullptr;
+    auto [node_path, pit] = traverse(p);
+    return pit == p.end();
   }
 
   bool exists(const path &p) const override {
@@ -311,8 +389,8 @@ public:
       // Special case. Path is empty string.
       return false;
     }
-    auto n = find_node(p);
-    return n && n->type == file_type::directory;
+    auto [node_path, pit] = traverse(p);
+    return (pit == p.end() && node_path.back()->type == file_type::directory);
   }
 
   bool is_directory(const path &p) const override {
@@ -326,9 +404,9 @@ public:
 
   file_status status(const path &p) const override {
     file_status s;
-    const node *n = find_node(p);
-    if (n) {
-      s.type(n->type);
+    auto [node_path, pit] = traverse(p);
+    if (pit == p.end()) {
+      s.type(node_path.back()->type);
     } else {
       s.type(file_type::not_found);
     }

@@ -22,10 +22,11 @@ TEST_CASE("fake_filesystem") {
     REQUIRE(!fs.create_directory(root / "hello/goodbye"));
     REQUIRE(fs.status(root / "hello/goodbye").type() ==
             pfs::file_type::directory);
-    REQUIRE(!fs.create_directory(root / "parent/path/does/not/exist"));
 
     std::error_code ec;
     REQUIRE(!fs.create_directory("", ec));
+    REQUIRE(ec == std::errc::no_such_file_or_directory);
+    REQUIRE(!fs.create_directory(root / "parent/path/does/not/exist", ec));
     REQUIRE(ec == std::errc::no_such_file_or_directory);
   }
 
@@ -54,5 +55,25 @@ TEST_CASE("fake_filesystem") {
     REQUIRE(fs.create_directories(root / "hey/jude"));
     REQUIRE(fs.is_directory(root / "hey"));
     REQUIRE(fs.is_directory(root / "hey/jude"));
+  }
+
+  SECTION("current_path") {
+    REQUIRE(fs.create_directories(root / "one/two/three"));
+    REQUIRE_NOTHROW(fs.current_path(root / "one/two"));
+    REQUIRE(fs.create_directories("four"));
+    REQUIRE(fs.exists("three"));
+    REQUIRE(fs.exists("four"));
+    REQUIRE(fs.is_directory("three"));
+    REQUIRE(fs.is_directory("four"));
+  }
+
+  SECTION("special directories . and ..") {
+    REQUIRE(fs.create_directories(root / "one/two/three"));
+    REQUIRE_NOTHROW(fs.current_path("one/two"));
+    REQUIRE(fs.is_directory("."));     // '/one/two'
+    REQUIRE(fs.is_directory(".."));    // '/one'
+    REQUIRE(fs.is_directory("../..")); // '/'
+    REQUIRE(fs.create_directories("../newdir/foo"));
+    REQUIRE(fs.is_directory(root / "one/newdir/foo"));
   }
 }
