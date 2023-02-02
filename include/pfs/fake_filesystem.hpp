@@ -99,6 +99,17 @@ private:
     }
   }
 
+  std::pair<node_list, path::const_iterator> traverse(const path &p) const {
+    node_list node_path;
+    if (p.is_absolute()) {
+      node_path.push_back(meta_root_);
+    } else {
+      node_path = cwd_nodes_;
+    }
+    auto pit = traverse(node_path, p.begin(), p.end());
+    return {std::move(node_path), pit};
+  }
+
 public:
   /**
    * @brief Adds a new root to the filesystem.
@@ -258,31 +269,32 @@ public:
       ec = std::make_error_code(std::errc::no_such_file_or_directory);
       return false;
     }
-    auto [n, it] = find_deepest_existing_node(p);
-    if (!n && p.relative_path().empty()) {
-      // Special case. If path is non-existent root without any relative path,
-      // it is not an error and no directories are created. (This is the case on
-      // Windows. Need to confirm on POSIX).
-      ec.clear();
-      return false;
-    } else if (!n) {
-      // Root does not exist. This is an error.
-      ec = std::make_error_code(std::errc::no_such_file_or_directory);
-      return false;
-    } else if (n->type != file_type::directory) {
-      // Deepest existing node is not a directory.
-      ec = std::make_error_code(std::errc::not_a_directory);
-      return false;
-    } else if (it == p.end()) {
-      // Requested path is already a directory.
-      ec.clear();
+
+    auto [node_path, pit] = traverse(p);
+    if (pit == p.end()) {
+      // Path already exists.
+      if (node_path.back()->type == file_type::directory) {
+        ec.clear();
+      } else {
+        ec = std::make_error_code(std::errc::not_a_directory);
+      }
       return false;
     }
-    for (; it != p.end(); ++it) {
-      auto next_dir = std::make_shared<node>();
-      next_dir->type = file_type::directory;
-      const_cast<node *>(n)->dents[it->string()] = next_dir;
-      n = next_dir.get();
+
+    if (node_path.back()->type != file_type::directory) {
+      // Deepest existing node is not a directory. Cannot make additional
+      // directories from here.
+      ec = std::make_error_code(std::errc::no_such_file_or_directory);
+      return false;
+    }
+
+    // Make additional directories.
+    auto parent_node = node_path.back();
+    for (; pit != p.end(); ++pit) {
+      auto new_dir = std::make_shared<node>();
+      new_dir->name = *pit;
+      new_dir->type = file_type::directory;
+      insert_node(parent_node->dents, new_dir);
     }
     ec.clear();
     return true;
@@ -303,7 +315,8 @@ public:
       // Special case. Path is empty string.
       return false;
     }
-    return find_node(p) != nullptr;
+    auto [node_path, pit] = traverse(p);
+    return pit == p.end();
   }
 
   bool exists(const path &p) const override {
@@ -321,8 +334,8 @@ public:
       // Special case. Path is empty string.
       return false;
     }
-    auto n = find_node(p);
-    return n && n->type == file_type::directory;
+    auto [node_path, pit] = traverse(p);
+    return (pit == p.end() && node_path.back()->type == file_type::directory);
   }
 
   bool is_directory(const path &p) const override {
@@ -336,9 +349,9 @@ public:
 
   file_status status(const path &p) const override {
     file_status s;
-    const node *n = find_node(p);
-    if (n) {
-      s.type(n->type);
+    auto [node_path, pit] = traverse(p);
+    if (pit == p.end()) {
+      s.type(node_path.back()->type);
     } else {
       s.type(file_type::not_found);
     }
