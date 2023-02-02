@@ -201,36 +201,46 @@ public:
 
 public:
   bool create_directory(const path &p, error_code &ec) noexcept override {
-    // todo: assume absolute path for now.
     if (p.empty()) {
       // Special case. Path is empty string.
       ec = std::make_error_code(std::errc::no_such_file_or_directory);
       return false;
     }
-    const node *n = find_node(p.parent_path());
-    if (!n) {
-      // Parent path does not exist. Not an error, but no directory created.
-      ec.clear();
+
+    // Locate the node for the requested path.
+    node_list node_path;
+    if (p.is_absolute()) {
+      node_path.push_back(meta_root_);
+    } else {
+      node_path = cwd_nodes_;
+    }
+    auto pit = traverse(node_path, p.begin(), p.end());
+
+    if (pit == p.end()) {
+      // The path already exists.
+      if (node_path.back()->type == file_type::directory) {
+        ec.clear();
+      } else {
+        ec = std::make_error_code(std::errc::not_a_directory);
+      }
       return false;
     }
-    auto target = n->dents.find(p.stem().string());
-    if (target != n->dents.end()) {
-      if (target->second->type == file_type::directory) {
-        // Directory already exists.
+
+    if (++pit == p.end()) {
+      // The parent path already exists.
+      if (node_path.back()->type == file_type::directory) {
+        auto new_dir = std::make_shared<node>();
+        new_dir->type = file_type::directory;
+        new_dir->name = p.stem();
+        insert_node(node_path.back()->dents, new_dir);
         ec.clear();
-        return false;
-      } else {
-        // Target path exists, but it's not a directory.
-        ec = std::make_error_code(std::errc::not_a_directory);
-        return false;
+        return true;
       }
     }
-    // Target path does not exist. Make the directory.
-    auto new_dir = std::make_shared<node>();
-    new_dir->type = file_type::directory;
-    const_cast<node *>(n)->dents[p.stem().string()] = new_dir;
-    ec.clear();
-    return true;
+
+    // Either the parent does not exist, or it is not a directory.
+    ec = std::make_error_code(std::errc::no_such_file_or_directory);
+    return false;
   }
 
   bool create_directory(const path &p) override {
