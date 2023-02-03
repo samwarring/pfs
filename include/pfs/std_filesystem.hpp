@@ -7,6 +7,12 @@ namespace pfs {
 
 class std_filesystem final : public filesystem {
 public:
+  path absolute(const path &p) override { return std::filesystem::absolute(p); }
+
+  path absolute(const path &p, error_code &ec) override {
+    return std::filesystem::absolute(p, ec);
+  }
+
   bool create_directory(const path &p) override {
     return std::filesystem::create_directory(p);
   }

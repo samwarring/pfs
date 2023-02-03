@@ -14,6 +14,8 @@ using std::filesystem::path;
 class filesystem {
 public:
   virtual ~filesystem() = default;
+  virtual path absolute(const path &p) = 0;
+  virtual path absolute(const path &p, error_code &ec) = 0;
   virtual bool create_directory(const path &p) = 0;
   virtual bool create_directory(const path &p, error_code &ec) noexcept = 0;
   virtual bool create_directories(const path &p) = 0;

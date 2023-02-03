@@ -217,6 +217,7 @@ public:
     // If cwd not set, set it now.
     if (cwd_.empty()) {
       cwd_ = root_name / "\\";
+      cwd_nodes_.push_back(meta_root_);
       cwd_nodes_.push_back(root_node);
       cwd_nodes_.push_back(root_dir_node);
     }
@@ -227,6 +228,7 @@ public:
     // If cwd not set, set it now.
     if (cwd_.empty()) {
       cwd_ = "/";
+      cwd_nodes_.push_back(meta_root_);
       cwd_nodes_.push_back(root_node);
     }
 #endif
@@ -272,6 +274,50 @@ public:
   }
 
 public:
+  path absolute(const path &p, error_code &ec) override {
+    ec.clear();
+    if (p.empty()) {
+      return {};
+    } else if (p.is_absolute()) {
+      return p;
+    } else {
+      // Build up a list of path components for the result. Initialize it to the
+      // components of the CWD.
+      std::vector<path> path_parts;
+      path_parts.reserve(cwd_nodes_.size());
+      std::transform(cwd_nodes_.begin(), cwd_nodes_.end(),
+                     std::back_inserter(path_parts),
+                     [](auto n) { return n->name; });
+
+      // Eliminate special directories . and .. from the path.
+      for (auto pit = p.begin(); pit != p.end(); ++pit) {
+        if (*pit == "..") {
+          if (path_parts.back().root_directory().empty()) {
+            // Regular directory
+            path_parts.pop_back();
+          }
+        } else if (*pit != ".") {
+          path_parts.push_back(*pit);
+        }
+      }
+
+      // Join the path components into the result.
+      path ret;
+      std::for_each(path_parts.begin() + 1, path_parts.end(),
+                    [&](const auto &q) { ret /= q; });
+      return ret;
+    }
+  }
+
+  path absolute(const path &p) override {
+    error_code ec;
+    auto ret = absolute(p, ec);
+    if (ec) {
+      throw filesystem_error("absolute", ec);
+    }
+    return ret;
+  }
+
   bool create_directory(const path &p, error_code &ec) noexcept override {
     if (p.empty()) {
       // Special case. Path is empty string.
