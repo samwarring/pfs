@@ -50,6 +50,26 @@ private:
   }
 
   /**
+   * @brief Removes a node from a sorted node list.
+   *
+   * @pre The node list is sorted alphabetically by node name.
+   *
+   * @param l The node list to be modified.
+   * @param n Removes all nodes with the same name.
+   * @return true if any nodes were removed; false if none found.
+   */
+  static bool remove_node(node_list &l, std::shared_ptr<node> n) {
+    auto [first, last] =
+        std::equal_range(l.begin(), l.end(), n,
+                         [](auto n1, auto n2) { return n1->name < n2->name; });
+    if (first == last) {
+      return false;
+    }
+    l.erase(first, last);
+    return true;
+  }
+
+  /**
    * @brief Finds a node in a sorted node list.
    *
    * @pre The node list is sorted alphabetically by node name.
@@ -69,6 +89,21 @@ private:
       return nullptr;
     } else {
       return *first;
+    }
+  }
+
+  /**
+   * @brief Executes a callback against all nodes in depth first-order
+   *
+   * @tparam Callback A Callable type of the form void(node&).
+   * @param n Visit this node and its decendants.
+   * @param visitor instance of the callback.
+   */
+  template <typename Callback>
+  static void visit_nodes(node &n, Callback visitor) {
+    visitor(n);
+    for (auto dent : n.dents) {
+      visit_nodes(*dent, visitor);
     }
   }
 
@@ -398,6 +433,95 @@ public:
     bool ret = is_directory(p, ec);
     if (ec) {
       throw filesystem_error("is_directory", ec);
+    }
+    return ret;
+  }
+
+  bool remove(const path &p, error_code &ec) noexcept {
+    if (p.empty()) {
+      ec.clear();
+      return false;
+    }
+    auto [node_path, pit] = traverse(p);
+    if (pit != p.end()) {
+      // Path does not exist
+      ec.clear();
+      return false;
+    }
+    auto n = node_path.back();
+    if (n->type == file_type::directory) {
+      if (!n->name.root_directory().empty()) {
+        // Cannot remove the root directory.
+        ec = std::make_error_code(std::errc::permission_denied);
+        return false;
+      } else if (!n->dents.empty()) {
+        // Cannot remove non-empty directories.
+        ec = std::make_error_code(std::errc::directory_not_empty);
+        return false;
+      } else {
+        // Remove the empty directory.
+        auto dir = node_path.back();
+        node_path.pop_back();
+        auto parent = node_path.back();
+        remove_node(parent->dents, dir);
+        ec.clear();
+        return true;
+      }
+    }
+
+    // TODO: Handle types other than directories.
+    ec = std::make_error_code(std::errc::not_supported);
+    return false;
+  }
+
+  bool remove(const path &p) {
+    error_code ec;
+    auto ret = remove(p, ec);
+    if (ec) {
+      throw filesystem_error("remove", ec);
+    }
+    return ret;
+  }
+
+  std::uintmax_t remove_all(const path &p, error_code &ec) noexcept override {
+    if (p.empty()) {
+      ec.clear();
+      return 0;
+    }
+    auto [node_path, pit] = traverse(p);
+    if (pit != p.end()) {
+      // Path does not exist.
+      ec.clear();
+      return 0;
+    }
+    auto n = node_path.back();
+    if (n->type == file_type::directory) {
+      if (!n->name.root_directory().empty()) {
+        // Cannot remove the root directory.
+        ec = std::make_error_code(std::errc::permission_denied);
+        return false;
+      }
+    }
+
+    // Unlink the node from its parent.
+    node_path.pop_back();
+    auto parent = node_path.back();
+    remove_node(parent->dents, n);
+
+    // Count decendants
+    std::uintmax_t count = 0;
+    visit_nodes(*n, [&count](auto &) { ++count; });
+
+    // Release the unlinked node. Free the memory.
+    n.reset();
+    return count;
+  }
+
+  std::uintmax_t remove_all(const path &p) override {
+    error_code ec;
+    auto ret = remove_all(p, ec);
+    if (ec) {
+      throw filesystem_error("remove_all", ec);
     }
     return ret;
   }

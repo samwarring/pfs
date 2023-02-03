@@ -26,6 +26,10 @@ public:
   virtual bool exists(const path &p, error_code &ec) const noexcept = 0;
   virtual bool is_directory(const path &p) const = 0;
   virtual bool is_directory(const path &p, error_code &ec) const noexcept = 0;
+  virtual bool remove(const path &p) = 0;
+  virtual bool remove(const path &p, error_code &ec) noexcept = 0;
+  virtual std::uintmax_t remove_all(const path &p) = 0;
+  virtual std::uintmax_t remove_all(const path &p, error_code &ec) noexcept = 0;
   virtual file_status status(const path &p) const = 0;
 };
 

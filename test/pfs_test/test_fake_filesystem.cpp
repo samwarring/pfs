@@ -76,4 +76,26 @@ TEST_CASE("fake_filesystem") {
     REQUIRE(fs.create_directories("../newdir/foo"));
     REQUIRE(fs.is_directory(root / "one/newdir/foo"));
   }
+
+  SECTION("remove") {
+    REQUIRE_THROWS_AS(fs.remove("."), pfs::filesystem_error);
+    REQUIRE_THROWS_AS(fs.remove(".."), pfs::filesystem_error);
+    REQUIRE(fs.create_directories("one/two/three"));
+    REQUIRE(!fs.remove("one/two/three/four")); // nothing to remove
+    REQUIRE_THROWS_AS(fs.remove("one"), pfs::filesystem_error); // not empty
+    REQUIRE(fs.remove("one/two/three"));
+    REQUIRE(!fs.exists("one/two/three"));
+    REQUIRE(fs.remove("one/two"));
+    REQUIRE(!fs.exists("one/two"));
+    REQUIRE(fs.remove("one"));
+    REQUIRE(!fs.exists("one"));
+  }
+
+  SECTION("remove_all") {
+    REQUIRE_THROWS(fs.remove_all("."));
+    REQUIRE_THROWS(fs.remove_all(".."));
+    REQUIRE(fs.create_directories("one/two/three"));
+    REQUIRE(fs.remove_all("one") == 3);
+    REQUIRE(!fs.exists("one"));
+  }
 }
