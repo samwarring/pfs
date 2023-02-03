@@ -272,6 +272,14 @@ public:
   }
 
 public:
+  path absolute(const path &p) override {
+    return {}; // todo
+  }
+
+  path absolute(const path &p, error_code &ec) override {
+    return {}; // todo
+  }
+
   bool create_directory(const path &p, error_code &ec) noexcept override {
     if (p.empty()) {
       // Special case. Path is empty string.

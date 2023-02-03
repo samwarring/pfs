@@ -93,8 +93,11 @@ private:
   typedef std::string (*path_fn_string)(const std::filesystem::path &);
   typedef std::filesystem::file_status (*path_fn_status)(
       const std::filesystem::path &);
-  using path_fn_any = std::variant<path_fn_void, path_fn_bool, path_fn_uintmax,
-                                   path_fn_string, path_fn_status>;
+  typedef std::filesystem::path (*path_fn_path_path)(
+      const std::filesystem::path &);
+  using path_fn_any =
+      std::variant<path_fn_void, path_fn_bool, path_fn_uintmax, path_fn_string,
+                   path_fn_status, path_fn_path_path>;
 
   CLI::App app_{"Peforms arbitrary std::filesystem operations, so their "
                 "behavior can be replicated in pfs."};
@@ -137,6 +140,10 @@ private:
     add_subcommand(name, path_fn);
   }
 
+  void add_subcommand_path_path(const char *name, path_fn_path_path path_fn) {
+    add_subcommand(name, path_fn);
+  }
+
 public:
   int main(int argc, const char **argv) {
     try {
@@ -169,6 +176,11 @@ public:
             std::cout << std::get<path_fn_status>(sub.path_fn)(path_) << '\n';
           }
 
+          else if (std::holds_alternative<path_fn_path_path>(sub.path_fn)) {
+            std::cout << std::get<path_fn_path_path>(sub.path_fn)(path_)
+                      << '\n';
+          }
+
         } catch (const std::filesystem::filesystem_error &e) {
           std::cout << e;
         }
@@ -188,6 +200,7 @@ public:
     add_subcommand_bool("remove", std::filesystem::remove);
     add_subcommand_uintmax("remove_all", std::filesystem::remove_all);
     add_subcommand_status("status", std::filesystem::status);
+    add_subcommand_path_path("absolute", std::filesystem::absolute);
   }
 };
 
