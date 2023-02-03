@@ -579,6 +579,15 @@ public:
     return ret;
   }
 
+  void rename(const path &old_p, const path &new_p,
+              error_code &ec) noexcept override {
+    // TDOO
+  }
+
+  void rename(const path &old_p, const path &new_p) override {
+    // TODO
+  }
+
   file_status status(const path &p) const override {
     file_status s;
     auto [node_path, pit] = traverse(p);
