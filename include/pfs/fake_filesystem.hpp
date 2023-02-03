@@ -93,6 +93,21 @@ private:
   }
 
   /**
+   * @brief Executes a callback against all nodes in depth first-order
+   *
+   * @tparam Callback A Callable type of the form void(node&).
+   * @param n Visit this node and its decendants.
+   * @param visitor instance of the callback.
+   */
+  template <typename Callback>
+  static void visit_nodes(node &n, Callback visitor) {
+    visitor(n);
+    for (auto dent : n.dents) {
+      visit_nodes(*dent, visitor);
+    }
+  }
+
+  /**
    * @brief Traverses the node tree along a path.
    *
    * @param node_path The caller initializes this with the node where traversal
@@ -464,6 +479,49 @@ public:
     auto ret = remove(p, ec);
     if (ec) {
       throw filesystem_error("remove", ec);
+    }
+    return ret;
+  }
+
+  std::uintmax_t remove_all(const path &p, error_code &ec) noexcept override {
+    if (p.empty()) {
+      ec.clear();
+      return 0;
+    }
+    auto [node_path, pit] = traverse(p);
+    if (pit != p.end()) {
+      // Path does not exist.
+      ec.clear();
+      return 0;
+    }
+    auto n = node_path.back();
+    if (n->type == file_type::directory) {
+      if (!n->name.root_directory().empty()) {
+        // Cannot remove the root directory.
+        ec = std::make_error_code(std::errc::permission_denied);
+        return false;
+      }
+    }
+
+    // Unlink the node from its parent.
+    node_path.pop_back();
+    auto parent = node_path.back();
+    remove_node(parent->dents, n);
+
+    // Count decendants
+    std::uintmax_t count = 0;
+    visit_nodes(*n, [&count](auto &) { ++count; });
+
+    // Release the unlinked node. Free the memory.
+    n.reset();
+    return count;
+  }
+
+  std::uintmax_t remove_all(const path &p) override {
+    error_code ec;
+    auto ret = remove_all(p, ec);
+    if (ec) {
+      throw filesystem_error("remove_all", ec);
     }
     return ret;
   }

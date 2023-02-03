@@ -90,4 +90,12 @@ TEST_CASE("fake_filesystem") {
     REQUIRE(fs.remove("one"));
     REQUIRE(!fs.exists("one"));
   }
+
+  SECTION("remove_all") {
+    REQUIRE_THROWS(fs.remove_all("."));
+    REQUIRE_THROWS(fs.remove_all(".."));
+    REQUIRE(fs.create_directories("one/two/three"));
+    REQUIRE(fs.remove_all("one") == 3);
+    REQUIRE(!fs.exists("one"));
+  }
 }

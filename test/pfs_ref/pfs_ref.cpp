@@ -215,14 +215,31 @@ struct subcommand_remove : public subcommand {
   std::string path;
 
   subcommand_remove(CLI::App &app) : subcommand(app, "remove") {
-    parser->add_option("remove", path)
-        ->description("Removes the specified path");
+    parser->add_option("path", path)->description("Removes the specified path");
   }
 
   void run() override {
     std::cout << "\nremove(\"" << path << "\"): ";
     try {
       std::cout << std::filesystem::remove(path) << '\n';
+    } catch (const std::filesystem::filesystem_error &e) {
+      std::cout << e << '\n';
+    }
+  }
+};
+
+struct subcommand_remove_all : public subcommand {
+  std::string path;
+
+  subcommand_remove_all(CLI::App &app) : subcommand(app, "remove_all") {
+    parser->add_option("path", path)
+        ->description("Removes the path recursively");
+  }
+
+  void run() override {
+    std::cout << "\nremove_all(\"" << path << "\"): ";
+    try {
+      std::cout << std::filesystem::remove_all(path) << '\n';
     } catch (const std::filesystem::filesystem_error &e) {
       std::cout << e << '\n';
     }
@@ -262,6 +279,7 @@ int main(int argc, char **argv) {
       std::make_unique<subcommand_exists>(app),
       std::make_unique<subcommand_is_directory>(app),
       std::make_unique<subcommand_remove>(app),
+      std::make_unique<subcommand_remove_all>(app),
       std::make_unique<subcommand_status>(app)};
 
   CLI11_PARSE(app, argc, argv);

@@ -57,6 +57,14 @@ public:
     return std::filesystem::remove(p, ec);
   }
 
+  std::uintmax_t remove_all(const path &p) override {
+    return std::filesystem::remove_all(p);
+  }
+
+  std::uintmax_t remove_all(const path &p, error_code &ec) noexcept override {
+    return std::filesystem::remove_all(p, ec);
+  }
+
   file_status status(const path &p) const override {
     return std::filesystem::status(p);
   }
