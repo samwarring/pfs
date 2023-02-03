@@ -3,6 +3,8 @@
 #include <CLI/Formatter.hpp>
 #include <filesystem>
 #include <iostream>
+#include <sstream>
+#include <variant>
 #include <vector>
 
 std::ostream &operator<<(std::ostream &out,
@@ -63,229 +65,133 @@ std::ostream &operator<<(std::ostream &out, std::filesystem::perms p) {
 
 std::ostream &operator<<(std::ostream &out, std::filesystem::file_status s) {
   out << "file_status:\n"
-      << "type: " << s.type() << '\n'
-      << "permissions: " << s.permissions();
+      << "  type: " << s.type() << '\n'
+      << "  permissions: " << s.permissions();
   return out;
 }
 
-class subcommand {
-protected:
-  CLI::App *parser;
+std::string examine_path(const std::filesystem::path &p) {
+  std::ostringstream out;
+  out << "path:\n"
+      << "  root_name: " << p.root_name() << '\n'
+      << "  root_directory: " << p.root_directory() << '\n'
+      << "  relative_path: " << p.relative_path() << '\n'
+      << "  stem: " << p.stem() << '\n'
+      << "  extension: " << p.extension() << '\n'
+      << "  iteration: ";
+  for (auto part : p) {
+    out << part << ' ';
+  }
+  return out.str();
+}
+
+class application {
+private:
+  typedef void (*path_fn_void)(const std::filesystem::path &);
+  typedef bool (*path_fn_bool)(const std::filesystem::path &);
+  typedef std::uintmax_t (*path_fn_uintmax)(const std::filesystem::path &);
+  typedef std::string (*path_fn_string)(const std::filesystem::path &);
+  typedef std::filesystem::file_status (*path_fn_status)(
+      const std::filesystem::path &);
+  using path_fn_any = std::variant<path_fn_void, path_fn_bool, path_fn_uintmax,
+                                   path_fn_string, path_fn_status>;
+
+  CLI::App app_{"Peforms arbitrary std::filesystem operations, so their "
+                "behavior can be replicated in pfs."};
+
+  std::string path_;
+
+  struct subcommand {
+    CLI::App *parser;
+    path_fn_any path_fn;
+  };
+
+  std::vector<subcommand> subs_;
+
+  template <typename Fn> void add_subcommand(const char *name, Fn path_fn) {
+    subcommand sub;
+    sub.parser = app_.add_subcommand(name);
+    sub.parser->allow_windows_style_options(false);
+    sub.parser->add_option("path", path_);
+    sub.path_fn = path_fn;
+    subs_.push_back(sub);
+  }
+
+  void add_subcommand_void(const char *name, path_fn_void path_fn) {
+    add_subcommand(name, path_fn);
+  }
+
+  void add_subcommand_bool(const char *name, path_fn_bool path_fn) {
+    add_subcommand(name, path_fn);
+  }
+
+  void add_subcommand_uintmax(const char *name, path_fn_uintmax path_fn) {
+    add_subcommand(name, path_fn);
+  }
+
+  void add_subcommand_string(const char *name, path_fn_string path_fn) {
+    add_subcommand(name, path_fn);
+  }
+
+  void add_subcommand_status(const char *name, path_fn_status path_fn) {
+    add_subcommand(name, path_fn);
+  }
 
 public:
-  subcommand(CLI::App &parent_parser, std::string name) {
-    parser = parent_parser.add_subcommand(name);
-    parser->allow_windows_style_options(false);
-  }
-
-  virtual ~subcommand() {}
-
-  virtual void run() = 0;
-
-  void run_if_parsed() {
-    if (parser->parsed()) {
-      run();
-    }
-  }
-};
-
-struct subcommand_path : public subcommand {
-  std::string path;
-
-  subcommand_path(CLI::App &app) : subcommand(app, "path") {
-    parser->add_option("path", path)
-        ->description("Examine the argument as an std::path");
-  }
-
-  void run() override {
-    std::filesystem::path p(path);
-    std::cout << "\nroot_name: " << p.root_name() << '\n'
-              << "root_directory: " << p.root_directory() << '\n'
-              << "relative_path: " << p.relative_path() << '\n'
-              << "stem: " << p.stem() << '\n'
-              << "extension: " << p.extension() << '\n'
-              << "iteration: ";
-    for (auto part : p) {
-      std::cout << part << ' ';
-    }
-    std::cout << '\n';
-  }
-};
-
-struct subcommand_current_path : public subcommand {
-  std::string set_path;
-
-  subcommand_current_path(CLI::App &app) : subcommand(app, "current_path") {
-    parser->add_option("path", set_path)
-        ->description(
-            "Additionally, try to set current directory to this path.");
-  }
-
-  void run() override {
-    std::cout << "\ncurrent_path(): " << std::filesystem::current_path()
-              << "\n";
-    std::cout << "\ncurrent_path(\"" << set_path << "\"): ";
+  int main(int argc, const char **argv) {
     try {
-      std::filesystem::current_path(set_path);
-      std::cout << "ok\n";
-    } catch (const std::filesystem::filesystem_error &e) {
-      std::cout << e << '\n';
+      app_.parse(argc, argv);
+    } catch (const CLI::ParseError &e) {
+      return app_.exit(e);
     }
+    for (auto &sub : subs_) {
+      if (sub.parser->parsed()) {
+        std::cout << sub.parser->get_name() << "(\"" << path_ << "\"): ";
+        try {
+
+          if (std::holds_alternative<path_fn_void>(sub.path_fn)) {
+            std::get<path_fn_void>(sub.path_fn)(path_);
+            std::cout << "ok\n";
+
+          } else if (std::holds_alternative<path_fn_bool>(sub.path_fn)) {
+            std::cout << std::get<path_fn_bool>(sub.path_fn)(path_) << '\n';
+          }
+
+          else if (std::holds_alternative<path_fn_uintmax>(sub.path_fn)) {
+            std::cout << std::get<path_fn_uintmax>(sub.path_fn)(path_) << '\n';
+          }
+
+          else if (std::holds_alternative<path_fn_string>(sub.path_fn)) {
+            std::cout << std::get<path_fn_string>(sub.path_fn)(path_) << '\n';
+          }
+
+          else if (std::holds_alternative<path_fn_status>(sub.path_fn)) {
+            std::cout << std::get<path_fn_status>(sub.path_fn)(path_) << '\n';
+          }
+
+        } catch (const std::filesystem::filesystem_error &e) {
+          std::cout << e;
+        }
+      }
+    }
+    return 0;
+  }
+
+  application() {
+    add_subcommand_bool("exists", std::filesystem::exists);
+    add_subcommand_bool("create_directory", std::filesystem::create_directory);
+    add_subcommand_bool("create_directories",
+                        std::filesystem::create_directories);
+    add_subcommand_void("current_path", std::filesystem::current_path);
+    add_subcommand_bool("is_directory", std::filesystem::is_directory);
+    add_subcommand_string("path", examine_path);
+    add_subcommand_bool("remove", std::filesystem::remove);
+    add_subcommand_uintmax("remove_all", std::filesystem::remove_all);
+    add_subcommand_status("status", std::filesystem::status);
   }
 };
 
-struct subcommand_create_directory : public subcommand {
-  std::string dir_path;
-
-  subcommand_create_directory(CLI::App &app)
-      : subcommand(app, "create_directory") {
-    parser->add_option("path", dir_path)
-        ->description("Attempt to create a directory at this path.");
-  }
-
-  void run() override {
-    std::cout << "\ncreate_directory(\"" << dir_path << "\"): ";
-    try {
-      std::cout << std::filesystem::create_directory(dir_path) << '\n';
-    } catch (const std::filesystem::filesystem_error &e) {
-      std::cout << e << '\n';
-      std::cout << "  compare to errc::no_such_file_or_directory: "
-                << (e.code() == std::errc::no_such_file_or_directory) << '\n';
-    }
-  }
-};
-
-struct subcommand_create_directories : public subcommand {
-  std::string dir_path;
-
-  subcommand_create_directories(CLI::App &app)
-      : subcommand(app, "create_directories") {
-    parser->add_option("path", dir_path)
-        ->description("Attempt to create a directory at this path. Create all "
-                      "directories along the path that do not exist.");
-  }
-
-  void run() override {
-    std::cout << "\ncreate_directories(\"" << dir_path << "\"): ";
-    try {
-      std::cout << std::filesystem::create_directories(dir_path) << '\n';
-    } catch (const std::filesystem::filesystem_error &e) {
-      std::cout << e << '\n';
-    }
-  }
-};
-
-struct subcommand_exists : public subcommand {
-  std::string path;
-
-  subcommand_exists(CLI::App &app) : subcommand(app, "exists") {
-    parser->add_option("path", path)
-        ->description("Checks if the provided path exists");
-  }
-
-  void run() override {
-    std::cout << "\nexists(\"" << path << "\"): ";
-    try {
-      std::cout << std::filesystem::exists(path) << '\n';
-    } catch (const std::filesystem::filesystem_error &e) {
-      std::cout << e << '\n';
-    }
-  }
-};
-
-struct subcommand_is_directory : public subcommand {
-  std::string path;
-
-  subcommand_is_directory(CLI::App &app) : subcommand(app, "is_directory") {
-    parser->add_option("path", path)
-        ->description("Checks if the provided path is a directory");
-  }
-
-  void run() override {
-    std::cout << "\nis_directory(\"" << path << "\"): ";
-    try {
-      std::cout << std::filesystem::is_directory(path) << '\n';
-    } catch (const std::filesystem::filesystem_error &e) {
-      std::cout << e << '\n';
-    }
-  }
-};
-
-struct subcommand_remove : public subcommand {
-  std::string path;
-
-  subcommand_remove(CLI::App &app) : subcommand(app, "remove") {
-    parser->add_option("path", path)->description("Removes the specified path");
-  }
-
-  void run() override {
-    std::cout << "\nremove(\"" << path << "\"): ";
-    try {
-      std::cout << std::filesystem::remove(path) << '\n';
-    } catch (const std::filesystem::filesystem_error &e) {
-      std::cout << e << '\n';
-    }
-  }
-};
-
-struct subcommand_remove_all : public subcommand {
-  std::string path;
-
-  subcommand_remove_all(CLI::App &app) : subcommand(app, "remove_all") {
-    parser->add_option("path", path)
-        ->description("Removes the path recursively");
-  }
-
-  void run() override {
-    std::cout << "\nremove_all(\"" << path << "\"): ";
-    try {
-      std::cout << std::filesystem::remove_all(path) << '\n';
-    } catch (const std::filesystem::filesystem_error &e) {
-      std::cout << e << '\n';
-    }
-  }
-};
-
-struct subcommand_status : public subcommand {
-
-  std::string path;
-
-  subcommand_status(CLI::App &app) : subcommand(app, "status") {
-    parser->add_option("path", path)
-        ->description(
-            "Gets the status of the file/directory at the given path.");
-  }
-
-  void run() override {
-    std::cout << "\nstatus(\"" << path << "\"): ";
-    try {
-      std::cout << std::filesystem::status(path) << '\n';
-    } catch (const std::filesystem::filesystem_error &e) {
-      std::cout << e << '\n';
-    }
-  }
-};
-
-int main(int argc, char **argv) {
-
-  CLI::App app{"Peforms arbitrary std::filesystem operations, so their "
-               "behavior can be replicated in pfs."};
-
-  std::unique_ptr<subcommand> subcommands[]{
-      std::make_unique<subcommand_path>(app),
-      std::make_unique<subcommand_current_path>(app),
-      std::make_unique<subcommand_create_directory>(app),
-      std::make_unique<subcommand_create_directories>(app),
-      std::make_unique<subcommand_exists>(app),
-      std::make_unique<subcommand_is_directory>(app),
-      std::make_unique<subcommand_remove>(app),
-      std::make_unique<subcommand_remove_all>(app),
-      std::make_unique<subcommand_status>(app)};
-
-  CLI11_PARSE(app, argc, argv);
-
-  for (auto &s : subcommands) {
-    s->run_if_parsed();
-  }
-  std::cout << '\n';
+int main(int argc, const char **argv) {
+  application app;
+  return app.main(argc, argv);
 }
