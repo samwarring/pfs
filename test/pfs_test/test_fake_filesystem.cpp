@@ -98,4 +98,11 @@ TEST_CASE("fake_filesystem") {
     REQUIRE(fs.remove_all("one") == 3);
     REQUIRE(!fs.exists("one"));
   }
+
+  SECTION("absolute") {
+    REQUIRE(fs.absolute(".") == root);
+    REQUIRE(fs.create_directories("one/two/three"));
+    REQUIRE_NOTHROW(fs.current_path("one/two"));
+    REQUIRE(fs.absolute("..") == (root / "one"));
+  }
 }
