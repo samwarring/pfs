@@ -211,7 +211,26 @@ struct subcommand_is_directory : public subcommand {
   }
 };
 
+struct subcommand_remove : public subcommand {
+  std::string path;
+
+  subcommand_remove(CLI::App &app) : subcommand(app, "remove") {
+    parser->add_option("remove", path)
+        ->description("Removes the specified path");
+  }
+
+  void run() override {
+    std::cout << "\nremove(\"" << path << "\"): ";
+    try {
+      std::cout << std::filesystem::remove(path) << '\n';
+    } catch (const std::filesystem::filesystem_error &e) {
+      std::cout << e << '\n';
+    }
+  }
+};
+
 struct subcommand_status : public subcommand {
+
   std::string path;
 
   subcommand_status(CLI::App &app) : subcommand(app, "status") {
@@ -242,6 +261,7 @@ int main(int argc, char **argv) {
       std::make_unique<subcommand_create_directories>(app),
       std::make_unique<subcommand_exists>(app),
       std::make_unique<subcommand_is_directory>(app),
+      std::make_unique<subcommand_remove>(app),
       std::make_unique<subcommand_status>(app)};
 
   CLI11_PARSE(app, argc, argv);

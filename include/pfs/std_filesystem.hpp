@@ -51,6 +51,12 @@ public:
     return std::filesystem::is_directory(p);
   }
 
+  bool remove(const path &p) { return std::filesystem::remove(p); }
+
+  bool remove(const path &p, error_code &ec) noexcept {
+    return std::filesystem::remove(p, ec);
+  }
+
   file_status status(const path &p) const override {
     return std::filesystem::status(p);
   }

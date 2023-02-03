@@ -50,6 +50,26 @@ private:
   }
 
   /**
+   * @brief Removes a node from a sorted node list.
+   *
+   * @pre The node list is sorted alphabetically by node name.
+   *
+   * @param l The node list to be modified.
+   * @param n Removes all nodes with the same name.
+   * @return true if any nodes were removed; false if none found.
+   */
+  static bool remove_node(node_list &l, std::shared_ptr<node> n) {
+    auto [first, last] =
+        std::equal_range(l.begin(), l.end(), n,
+                         [](auto n1, auto n2) { return n1->name < n2->name; });
+    if (first == last) {
+      return false;
+    }
+    l.erase(first, last);
+    return true;
+  }
+
+  /**
    * @brief Finds a node in a sorted node list.
    *
    * @pre The node list is sorted alphabetically by node name.
@@ -398,6 +418,52 @@ public:
     bool ret = is_directory(p, ec);
     if (ec) {
       throw filesystem_error("is_directory", ec);
+    }
+    return ret;
+  }
+
+  bool remove(const path &p, error_code &ec) noexcept {
+    if (p.empty()) {
+      ec.clear();
+      return false;
+    }
+    auto [node_path, pit] = traverse(p);
+    if (pit != p.end()) {
+      // Path does not exist
+      ec.clear();
+      return false;
+    }
+    auto n = node_path.back();
+    if (n->type == file_type::directory) {
+      if (!n->name.root_directory().empty()) {
+        // Cannot remove the root directory.
+        ec = std::make_error_code(std::errc::permission_denied);
+        return false;
+      } else if (!n->dents.empty()) {
+        // Cannot remove non-empty directories.
+        ec = std::make_error_code(std::errc::directory_not_empty);
+        return false;
+      } else {
+        // Remove the empty directory.
+        auto dir = node_path.back();
+        node_path.pop_back();
+        auto parent = node_path.back();
+        remove_node(parent->dents, dir);
+        ec.clear();
+        return true;
+      }
+    }
+
+    // TODO: Handle types other than directories.
+    ec = std::make_error_code(std::errc::not_supported);
+    return false;
+  }
+
+  bool remove(const path &p) {
+    error_code ec;
+    auto ret = remove(p, ec);
+    if (ec) {
+      throw filesystem_error("remove", ec);
     }
     return ret;
   }
