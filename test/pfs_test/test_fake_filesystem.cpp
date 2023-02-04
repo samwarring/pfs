@@ -65,11 +65,14 @@ TEST_CASE("fake_filesystem") {
     REQUIRE(fs.exists("four"));
     REQUIRE(fs.is_directory("three"));
     REQUIRE(fs.is_directory("four"));
+    REQUIRE_THROWS_AS(fs.current_path("does/not/exist"),
+                      std::filesystem::filesystem_error);
   }
 
   SECTION("special directories . and ..") {
     REQUIRE(fs.create_directories(root / "one/two/three"));
     REQUIRE_NOTHROW(fs.current_path("one/two"));
+    REQUIRE(fs.current_path() == root / "one/two");
     REQUIRE(fs.is_directory("."));     // '/one/two'
     REQUIRE(fs.is_directory(".."));    // '/one'
     REQUIRE(fs.is_directory("../..")); // '/'

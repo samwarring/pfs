@@ -428,13 +428,20 @@ public:
     if (pit == p.end()) {
       // Path exists
       if (node_path.back()->type == file_type::directory) {
-        cwd_ = p;
+        cwd_ = path();
+        for (auto nit = node_path.begin() + 1; nit != node_path.end(); ++nit) {
+          cwd_ /= (*nit)->name;
+        }
         cwd_nodes_ = std::move(node_path);
+        ec.clear();
       } else {
         ec = std::make_error_code(std::errc::no_such_file_or_directory);
       }
       return;
     }
+
+    // Path does not exist
+    ec = std::make_error_code(std::errc::no_such_file_or_directory);
   }
 
   void current_path(const path &p) {
