@@ -67,6 +67,8 @@ private:
               << "  cd DIR         Change working directory.\n"
               << "  mkdir DIR      Create new directory. Parent must exist.\n"
               << "  mkdirs DIR     Create directory and subdirectories.\n"
+              << "  rm PATH        Remove file or empty directory.\n"
+              << "  rmr PATH       Remove file or directories recursively.\n"
               << "  abs PATH       Convert to absolute path.\n"
               << "  stat PATH      Prints properties file or directory.\n"
               << "  exist PATH     Checks if the path exists.\n"
@@ -178,6 +180,12 @@ public:
 
         } else if (parsed(tokens, "mkdirs", "DIR")) {
           std::cout << fs_->create_directories(tokens[1]) << std::endl;
+
+        } else if (parsed(tokens, "rm", "PATH")) {
+          std::cout << fs_->remove(tokens[1]) << std::endl;
+
+        } else if (parsed(tokens, "rmr", "PATH")) {
+          std::cout << fs_->remove_all(tokens[1]) << std::endl;
 
         } else if (parsed(tokens, "abs", "PATH")) {
           std::cout << fs_->absolute(tokens[1]) << std::endl;
