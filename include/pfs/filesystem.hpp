@@ -36,6 +36,7 @@ public:
   virtual void rename(const path &old_p, const path &new_p,
                       error_code &ec) noexcept = 0;
   virtual file_status status(const path &p) const = 0;
+  virtual file_status status(const path &p, error_code &ec) const noexcept = 0;
 };
 
 } // namespace pfs

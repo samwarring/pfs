@@ -83,6 +83,10 @@ public:
   file_status status(const path &p) const override {
     return std::filesystem::status(p);
   }
+
+  file_status status(const path &p, error_code &ec) const noexcept override {
+    return std::filesystem::status(p, ec);
+  }
 };
 
 } // namespace pfs

@@ -629,7 +629,7 @@ public:
     }
   }
 
-  file_status status(const path &p) const override {
+  file_status status(const path &p, error_code &ec) const noexcept override {
     file_status s;
     auto [node_path, pit] = traverse(p);
     if (pit == p.end()) {
@@ -637,7 +637,17 @@ public:
     } else {
       s.type(file_type::not_found);
     }
+    ec.clear();
     return s;
+  }
+
+  file_status status(const path &p) const override {
+    error_code ec;
+    auto ret = status(p, ec);
+    if (ec) {
+      throw filesystem_error("status", ec);
+    }
+    return ret;
   }
 };
 
