@@ -2,6 +2,7 @@
 #include <pfs/fake_filesystem.hpp>
 #include <pfs/std_filesystem.hpp>
 #include <sstream>
+#include <stdexcept>
 #include <string>
 
 std::ostream &operator<<(std::ostream &out, pfs::file_type t) {
@@ -49,6 +50,11 @@ std::ostream &operator<<(std::ostream &out, std::filesystem::perms p) {
   show('x', perms::others_exec);
   return out;
 }
+
+class invalid_command_error : public std::runtime_error {
+public:
+  using std::runtime_error::runtime_error;
+};
 
 class application {
 private:
@@ -139,8 +145,10 @@ private:
       if (tokens.size() > 1) {
         return true;
       }
-      std::cout << "`" << command_name << "` missing required " << metavar
-                << ". See `help`." << std::endl;
+      std::ostringstream sout;
+      sout << "`" << command_name << "` missing required " << metavar
+           << ". See `help`.";
+      throw invalid_command_error(sout.str());
     }
     return false;
   }
@@ -204,6 +212,8 @@ public:
         } else {
           std::cout << "Unrecognized command. Try running `help`." << std::endl;
         }
+      } catch (const invalid_command_error &e) {
+        std::cout << "Invalid command. " << e.what() << std::endl;
       } catch (const std::exception &e) {
         std::cout << "Caught exception: " << e.what() << std::endl;
       }
