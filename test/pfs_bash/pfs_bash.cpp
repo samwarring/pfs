@@ -75,6 +75,7 @@ private:
               << "  mkdirs DIR     Create directory and subdirectories.\n"
               << "  rm PATH        Remove file or empty directory.\n"
               << "  rmr PATH       Remove file or directories recursively.\n"
+              << "  mv SRC DST     Rename or move file or directory.\n"
               << "  abs PATH       Convert to absolute path.\n"
               << "  stat PATH      Prints properties file or directory.\n"
               << "  exist PATH     Checks if the path exists.\n"
@@ -153,6 +154,26 @@ private:
     return false;
   }
 
+  static bool parsed(const std::vector<std::string> &tokens,
+                     const char *command_name, const char *metavar1,
+                     const char *metavar2) {
+    if (tokens[0] == command_name) {
+      std::ostringstream sout;
+      if (tokens.size() == 1) {
+        sout << "`" << command_name << "` missing required " << metavar1
+             << " and " << metavar2 << ". See `help`.";
+        throw invalid_command_error(sout.str());
+      }
+      if (tokens.size() == 2) {
+        sout << "`" << command_name << "` missing required " << metavar2
+             << ". See `help`.";
+        throw invalid_command_error(sout.str());
+      }
+      return true;
+    }
+    return false;
+  }
+
 public:
   void run() {
     std::cout << std::boolalpha;
@@ -194,6 +215,9 @@ public:
 
         } else if (parsed(tokens, "rmr", "PATH")) {
           std::cout << fs_->remove_all(tokens[1]) << std::endl;
+
+        } else if (parsed(tokens, "mv", "SRC", "DST")) {
+          fs_->rename(tokens[1], tokens[2]);
 
         } else if (parsed(tokens, "abs", "PATH")) {
           std::cout << fs_->absolute(tokens[1]) << std::endl;
