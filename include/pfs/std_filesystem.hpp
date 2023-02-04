@@ -71,6 +71,15 @@ public:
     return std::filesystem::remove_all(p, ec);
   }
 
+  void rename(const path &old_p, const path &new_p) override {
+    std::filesystem::rename(old_p, new_p);
+  }
+
+  void rename(const path &old_p, const path &new_p,
+              error_code &ec) noexcept override {
+    std::filesystem::rename(old_p, new_p, ec);
+  }
+
   file_status status(const path &p) const override {
     return std::filesystem::status(p);
   }
