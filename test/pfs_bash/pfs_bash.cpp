@@ -56,7 +56,7 @@ private:
   pfs::fake_filesystem fake_fs_;
   pfs::filesystem *fs_{&fake_fs_};
 
-  void print_help() {
+  static void print_help() {
     std::cout << '\n'
               << "Available commands:\n"
               << '\n'
@@ -85,6 +85,64 @@ private:
     std::cout.flush();
   }
 
+  static std::vector<std::string> read_command() {
+    std::string line;
+    std::getline(std::cin, line);
+
+    enum { IN_WHITESPACE, IN_QUOTED, IN_UNQUOTED } state = IN_WHITESPACE;
+
+    std::vector<std::string> tokens;
+    for (auto ch : line) {
+      switch (state) {
+      case IN_WHITESPACE:
+        if (ch == '\"') {
+          tokens.emplace_back();
+          state = IN_QUOTED;
+        } else if (!std::isspace(ch)) {
+          tokens.emplace_back();
+          tokens.back() += ch;
+          state = IN_UNQUOTED;
+        }
+        break;
+      case IN_QUOTED:
+        if (ch == '\"') {
+          state = IN_WHITESPACE;
+        } else {
+          tokens.back() += ch;
+        }
+        break;
+      case IN_UNQUOTED:
+        if (std::isspace(ch)) {
+          state = IN_WHITESPACE;
+        } else {
+          tokens.back() += ch;
+        }
+        break;
+      default:
+        break;
+      }
+    }
+
+    return tokens;
+  }
+
+  static bool parsed(const std::vector<std::string> &tokens,
+                     const char *command_name) {
+    return tokens[0] == command_name;
+  }
+
+  static bool parsed(const std::vector<std::string> &tokens,
+                     const char *command_name, const char *metavar) {
+    if (tokens[0] == command_name) {
+      if (tokens.size() > 1) {
+        return true;
+      }
+      std::cout << "`" << command_name << "` missing required " << metavar
+                << ". See `help`." << std::endl;
+    }
+    return false;
+  }
+
 public:
   void run() {
     std::cout << std::boolalpha;
@@ -93,73 +151,48 @@ public:
     for (;;) {
       try {
         print_prompt();
-        std::getline(std::cin, line);
-        std::istringstream sin(line);
-        std::string command;
-        std::string arg;
-        sin >> command >> arg;
-        if (command.empty()) {
+        auto tokens = read_command();
+        if (tokens.empty()) {
           continue;
-        } else if (command == "help") {
+
+        } else if (parsed(tokens, "help")) {
           print_help();
-        } else if (command == "exit") {
+
+        } else if (parsed(tokens, "exit")) {
           break;
-        } else if (command == "real") {
+
+        } else if (parsed(tokens, "real")) {
           fs_ = &real_fs_;
-        } else if (command == "fake") {
+
+        } else if (parsed(tokens, "fake")) {
           fs_ = &fake_fs_;
-        } else if (command == "pwd") {
+
+        } else if (parsed(tokens, "pwd")) {
           std::cout << fs_->current_path().string() << std::endl;
-        } else if (command == "cd") {
-          if (arg.empty()) {
-            std::cout << "`cd` missing required DIR. See `help`." << std::endl;
-          } else {
-            fs_->current_path(arg);
-          }
-        } else if (command == "mkdir") {
-          if (arg.empty()) {
-            std::cout << "`mkdir` missing required DIR. See `help`."
-                      << std::endl;
-          } else {
-            std::cout << fs_->create_directory(arg) << std::endl;
-          }
-        } else if (command == "mkdirs") {
-          if (arg.empty()) {
-            std::cout << "`mkdirs` missing required DIR. See `help`."
-                      << std::endl;
-          } else {
-            std::cout << fs_->create_directories(arg) << std::endl;
-          }
-        } else if (command == "abs") {
-          if (arg.empty()) {
-            std::cout << "`abs` missing required PATH. See `help`."
-                      << std::endl;
-          } else {
-            std::cout << fs_->absolute(arg) << std::endl;
-          }
-        } else if (command == "stat") {
-          if (arg.empty()) {
-            std::cout << "`stat` missing required PATH. See `help`."
-                      << std::endl;
-          } else {
-            auto status = fs_->status(arg);
-            std::cout << "type: " << status.type() << '\n'
-                      << "perms: " << status.permissions() << std::endl;
-          }
-        } else if (command == "exist") {
-          if (arg.empty()) {
-            std::cout << "`exist` missing required PATH. See `help`."
-                      << std::endl;
-          } else {
-            std::cout << fs_->exists(arg) << std::endl;
-          }
-        } else if (command == "isdir") {
-          if (arg.empty()) {
-            std::cout << "`isdir` missing required DIR. See `help`."
-                      << std::endl;
-          } else {
-            std::cout << fs_->is_directory(arg) << std::endl;
-          }
+
+        } else if (parsed(tokens, "cd", "DIR")) {
+          fs_->current_path(tokens[1]);
+
+        } else if (parsed(tokens, "mkdir", "DIR")) {
+          std::cout << fs_->create_directory(tokens[1]) << std::endl;
+
+        } else if (parsed(tokens, "mkdirs", "DIR")) {
+          std::cout << fs_->create_directories(tokens[1]) << std::endl;
+
+        } else if (parsed(tokens, "abs", "PATH")) {
+          std::cout << fs_->absolute(tokens[1]) << std::endl;
+
+        } else if (parsed(tokens, "stat", "PATH")) {
+          auto status = fs_->status(tokens[1]);
+          std::cout << "type: " << status.type() << '\n'
+                    << "perms: " << status.permissions() << std::endl;
+
+        } else if (parsed(tokens, "exist", "PATH")) {
+          std::cout << fs_->exists(tokens[1]) << std::endl;
+
+        } else if (parsed(tokens, "isdir", "PATH")) {
+          std::cout << fs_->is_directory(tokens[1]) << std::endl;
+
         } else {
           std::cout << "Unrecognized command. Try running `help`." << std::endl;
         }
