@@ -108,4 +108,11 @@ TEST_CASE("fake_filesystem") {
     REQUIRE_NOTHROW(fs.current_path("one/two"));
     REQUIRE(fs.absolute("..") == (root / "one"));
   }
+
+  SECTION("rename") {
+    REQUIRE(fs.create_directories("a/b/c"));
+    REQUIRE_NOTHROW(fs.rename("a/b/c", "a/foo"));
+    REQUIRE(fs.is_directory("a/foo"));
+    REQUIRE(!fs.is_directory("a/b/c"));
+  }
 }

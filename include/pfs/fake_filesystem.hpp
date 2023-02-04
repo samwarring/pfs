@@ -581,11 +581,52 @@ public:
 
   void rename(const path &old_p, const path &new_p,
               error_code &ec) noexcept override {
-    // TDOO
+    if (old_p.empty() || new_p.empty()) {
+      ec = std::make_error_code(std::errc::no_such_file_or_directory);
+      return;
+    }
+    if (old_p == new_p) {
+      // TODO: Also need to check if they are different paths to the same
+      // file/directory.
+      ec.clear();
+      return;
+    }
+    auto [old_node_path, old_pit] = traverse(old_p);
+    if (old_pit != old_p.end()) {
+      // Old path does not exist.
+      ec = std::make_error_code(std::errc::no_such_file_or_directory);
+      return;
+    }
+    auto [new_node_path, new_pit] = traverse(new_p);
+    if (new_pit == new_p.end()) {
+      // New path already exists.
+      // TODO: There are many cases where the existing file is overwritten.
+      ec = std::make_error_code(std::errc::permission_denied);
+      return;
+    }
+    if (++new_pit != new_p.end()) {
+      // Parent directory of destination doesn't exist. Cannot move.
+      ec = std::make_error_code(std::errc::no_such_file_or_directory);
+      return;
+    }
+
+    // Move the node.
+    auto n = old_node_path.back();
+    old_node_path.pop_back();
+    auto old_parent = old_node_path.back();
+    auto new_parent = new_node_path.back();
+    remove_node(old_parent->dents, n);
+    n->name = new_p.filename();
+    insert_node(new_parent->dents, n);
+    ec.clear();
   }
 
   void rename(const path &old_p, const path &new_p) override {
-    // TODO
+    error_code ec;
+    rename(old_p, new_p, ec);
+    if (ec) {
+      throw filesystem_error("rename", ec);
+    }
   }
 
   file_status status(const path &p) const override {
