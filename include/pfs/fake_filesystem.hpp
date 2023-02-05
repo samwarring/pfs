@@ -171,6 +171,80 @@ private:
     return {std::move(node_path), pit};
   }
 
+  class fake_directory_entry final : public directory_entry {
+  private:
+    pfs::path path_;
+    file_status status_;
+
+  public:
+    void assign(pfs::path &&p, file_status s) {
+      path_ = std::move(p);
+      status_ = s;
+    }
+
+    const pfs::path &path() const noexcept override { return path_; }
+
+    file_status status() const override { return status_; }
+
+    file_status status(error_code &ec) const override {
+      ec.clear();
+      return status_;
+    }
+  };
+
+  class fake_directory_iterator final : public pfs::directory_iterator {
+  private:
+    path path_;
+    node_list node_path_;
+    node_list::iterator dent_iter_;
+    mutable fake_directory_entry ent_;
+
+  public:
+    fake_directory_iterator(path p, node_list &&node_path)
+        : path_(std::move(p)), node_path_(std::move(node_path)) {
+      dent_iter_ = node_path_.back()->dents.begin();
+    }
+
+    const directory_entry &operator*() const override {
+      file_status s;
+      s.type((*dent_iter_)->type);
+      ent_.assign(path_ / (*dent_iter_)->name, s);
+      return ent_;
+    }
+
+    pfs::directory_iterator &operator++() override {
+      ++dent_iter_;
+      return *this;
+    }
+
+    pfs::directory_iterator &increment(error_code &ec) override {
+      ec.clear();
+      ++dent_iter_;
+      return *this;
+    }
+
+    bool at_end() const override {
+      return dent_iter_ == node_path_.back()->dents.end();
+    }
+  };
+
+  class fake_directory_iterator_no_such_file final
+      : public pfs::directory_iterator {
+  private:
+    fake_directory_entry ent_;
+
+  public:
+    const directory_entry &operator*() const override { return ent_; }
+
+    pfs::directory_iterator &operator++() override { return *this; }
+
+    pfs::directory_iterator &increment(error_code &ec) override {
+      return *this;
+    }
+
+    bool at_end() const override { return true; }
+  };
+
 public:
   /**
    * @brief Adds a new root to the filesystem.
@@ -651,13 +725,35 @@ public:
   }
 
   std::unique_ptr<pfs::directory_iterator>
-  directory_iterator(const path &p) const override {
-    return nullptr; // TODO
+  directory_iterator(const path &p, error_code &ec) const override {
+    if (p.empty()) {
+      ec = std::make_error_code(std::errc::no_such_file_or_directory);
+      return std::make_unique<fake_directory_iterator_no_such_file>();
+    }
+    auto [node_path, pit] = traverse(p);
+    if (pit != p.end()) {
+      ec = std::make_error_code(std::errc::no_such_file_or_directory);
+      return std::make_unique<fake_directory_iterator_no_such_file>();
+    }
+    if (node_path.back()->type != file_type::directory) {
+      ec = std::make_error_code(std::errc::not_a_directory);
+      return std::make_unique<fake_directory_iterator_no_such_file>();
+    }
+    // TODO: Path should be an absolute path.
+    auto ret =
+        std::make_unique<fake_directory_iterator>(p, std::move(node_path));
+    ec.clear();
+    return ret;
   }
 
   std::unique_ptr<pfs::directory_iterator>
-  directory_iterator(const path &p, error_code &ec) const override {
-    return nullptr; // TODO
+  directory_iterator(const path &p) const override {
+    error_code ec;
+    auto ret = directory_iterator(p, ec);
+    if (ec) {
+      throw filesystem_error("directory_iterator", ec);
+    }
+    return ret;
   }
 };
 
