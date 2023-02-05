@@ -54,8 +54,8 @@ public:
 class iterable_directory {
 public:
   virtual ~iterable_directory() = default;
-  virtual std::unique_ptr<directory_iterator> begin() const = 0;
-  virtual std::unique_ptr<directory_iterator> end() const = 0;
+  virtual directory_iterator &begin() = 0;
+  virtual directory_iterator &end() = 0;
 };
 
 class directory_iterator {
@@ -85,18 +85,12 @@ public:
 
 class directory_entry {
 public:
-  virtual void assign(const path &p) = 0;
-  virtual void assign(const path &p, error_code &ec) = 0;
-  virtual void replace_filename(const path &p) = 0;
-  virtual void replace_filename(const path &p, error_code &ec) = 0;
-  virtual void refresh() = 0;
-  virtual void refresh(error_code &ec) = 0;
   virtual const path &path() const noexcept = 0;
 
   operator const pfs::path &() const noexcept { return path(); }
 
   virtual file_status status() const = 0;
-  virtual file_status status(error_code &ec) = 0;
+  virtual file_status status(error_code &ec) const = 0;
 };
 
 } // namespace pfs

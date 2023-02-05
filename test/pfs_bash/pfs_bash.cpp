@@ -71,6 +71,7 @@ private:
               << "  fake           Switch to fake filesystem.\n"
               << "  pwd            Print working directory.\n"
               << "  cd DIR         Change working directory.\n"
+              << "  ls DIR         List contents of directory.\n"
               << "  mkdir DIR      Create new directory. Parent must exist.\n"
               << "  mkdirs DIR     Create directory and subdirectories.\n"
               << "  rm PATH        Remove file or empty directory.\n"
@@ -203,6 +204,17 @@ public:
 
         } else if (parsed(tokens, "cd", "DIR")) {
           fs_->current_path(tokens[1]);
+
+        } else if (parsed(tokens, "ls", "DIR")) {
+          auto dir = fs_->iterate_directory(tokens[1]);
+          auto &it = dir->begin();
+          auto &end = dir->end();
+          for (; it != end; ++it) {
+            auto status = it->status();
+            std::cout << status.permissions() << "  " << std::setw(14)
+                      << std::left << status.type() << "  "
+                      << it->path().filename().string() << std::endl;
+          }
 
         } else if (parsed(tokens, "mkdir", "DIR")) {
           std::cout << fs_->create_directory(tokens[1]) << std::endl;

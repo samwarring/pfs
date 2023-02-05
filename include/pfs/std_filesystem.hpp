@@ -5,6 +5,75 @@
 
 namespace pfs {
 
+class std_directory_entry final : public directory_entry {
+private:
+  const std::filesystem::directory_entry *ent_;
+
+public:
+  std_directory_entry &operator=(const std::filesystem::directory_entry &ent) {
+    ent_ = &ent;
+    return *this;
+  }
+
+  const pfs::path &path() const noexcept override { return ent_->path(); }
+
+  file_status status() const override { return ent_->status(); }
+
+  file_status status(error_code &ec) const override { return ent_->status(ec); }
+};
+
+class std_directory_iterator final : public directory_iterator {
+private:
+  inline static std::filesystem::directory_iterator end_{};
+  std::filesystem::directory_iterator it_;
+  mutable std_directory_entry ent_;
+
+public:
+  std_directory_iterator() = default;
+
+  std_directory_iterator(const std::filesystem::directory_iterator &it)
+      : it_(it) {}
+
+  const directory_entry &operator*() const override {
+    ent_ = *it_;
+    return ent_;
+  }
+
+  directory_iterator &operator++() override {
+    ++it_;
+    return *this;
+  }
+
+  directory_iterator &incremenet(error_code &ec) override {
+    it_.increment(ec);
+    return *this;
+  }
+
+  std::uintptr_t hash() const override {
+    if (it_ == end_) {
+      return 0;
+    } else {
+      // TODO: Major assumption here. Is this right? I doubt it.
+      // Returns address of the pointed-to std::filesystem::directory_entry.
+      return reinterpret_cast<std::uintptr_t>(&(*it_));
+    }
+  }
+};
+
+class std_iterable_directory final : public iterable_directory {
+private:
+  std_directory_iterator begin_;
+  std_directory_iterator end_;
+
+public:
+  std_iterable_directory(const std::filesystem::directory_iterator &it)
+      : begin_(it) {}
+
+  directory_iterator &begin() override { return begin_; }
+
+  directory_iterator &end() override { return end_; }
+};
+
 class std_filesystem final : public filesystem {
 public:
   path absolute(const path &p) override { return std::filesystem::absolute(p); }
@@ -90,12 +159,14 @@ public:
 
   std::unique_ptr<iterable_directory>
   iterate_directory(const path &p) const override {
-    return nullptr; // TODO
+    std::filesystem::directory_iterator it(p);
+    return std::make_unique<std_iterable_directory>(it);
   }
 
   std::unique_ptr<iterable_directory>
   iterate_directory(const path &p, error_code &ec) const override {
-    return nullptr; // TODO
+    std::filesystem::directory_iterator it(p, ec);
+    return std::make_unique<std_iterable_directory>(it);
   }
 };
 
