@@ -14,7 +14,6 @@ using std::filesystem::filesystem_error;
 using std::filesystem::path;
 
 class filesystem;
-class iterable_directory;
 class directory_iterator;
 class directory_entry;
 
@@ -52,16 +51,16 @@ public:
 
 class directory_iterator {
 public:
-  virtual const directory_entry &operator*() const = 0;
+  virtual const directory_entry &entry() const = 0;
 
-  const directory_entry *operator->() const { return &(**this); }
+  const directory_entry &operator*() const { return entry(); }
 
-  const directory_entry &entry() const { return **this; }
+  const directory_entry *operator->() const { return &entry(); }
 
-  virtual directory_iterator &operator++() = 0;
+  virtual directory_iterator &increment() = 0;
   virtual directory_iterator &increment(error_code &ec) = 0;
 
-  virtual directory_iterator &increment() { return ++(*this); }
+  directory_iterator &operator++() { return increment(); }
 
   virtual bool at_end() const = 0;
 

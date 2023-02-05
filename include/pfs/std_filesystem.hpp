@@ -34,12 +34,12 @@ public:
   std_directory_iterator(const std::filesystem::directory_iterator &it)
       : it_(it) {}
 
-  const directory_entry &operator*() const override {
+  const directory_entry &entry() const override {
     ent_ = *it_;
     return ent_;
   }
 
-  directory_iterator &operator++() override {
+  directory_iterator &increment() override {
     ++it_;
     return *this;
   }

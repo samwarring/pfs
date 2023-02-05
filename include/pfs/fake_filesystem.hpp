@@ -205,14 +205,14 @@ private:
       dent_iter_ = node_path_.back()->dents.begin();
     }
 
-    const directory_entry &operator*() const override {
+    const directory_entry &entry() const override {
       file_status s;
       s.type((*dent_iter_)->type);
       ent_.assign(path_ / (*dent_iter_)->name, s);
       return ent_;
     }
 
-    pfs::directory_iterator &operator++() override {
+    pfs::directory_iterator &increment() override {
       ++dent_iter_;
       return *this;
     }
@@ -234,9 +234,9 @@ private:
     fake_directory_entry ent_;
 
   public:
-    const directory_entry &operator*() const override { return ent_; }
+    const directory_entry &entry() const override { return ent_; }
 
-    pfs::directory_iterator &operator++() override { return *this; }
+    pfs::directory_iterator &increment() override { return *this; }
 
     pfs::directory_iterator &increment(error_code &ec) override {
       return *this;
