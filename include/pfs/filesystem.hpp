@@ -3,7 +3,6 @@
 
 #include <cstddef>
 #include <filesystem>
-#include <iterator>
 #include <memory>
 
 namespace pfs {
@@ -45,42 +44,28 @@ public:
                       error_code &ec) noexcept = 0;
   virtual file_status status(const path &p) const = 0;
   virtual file_status status(const path &p, error_code &ec) const noexcept = 0;
-  virtual std::unique_ptr<iterable_directory>
-  iterate_directory(const path &p) const = 0;
-  virtual std::unique_ptr<iterable_directory>
-  iterate_directory(const path &p, error_code &ec) const = 0;
-};
-
-class iterable_directory {
-public:
-  virtual ~iterable_directory() = default;
-  virtual directory_iterator &begin() = 0;
-  virtual directory_iterator &end() = 0;
+  virtual std::unique_ptr<pfs::directory_iterator>
+  directory_iterator(const path &p) const = 0;
+  virtual std::unique_ptr<pfs::directory_iterator>
+  directory_iterator(const path &p, error_code &ec) const = 0;
 };
 
 class directory_iterator {
 public:
-  using value_type = directory_entry;
-  using difference_type = std::ptrdiff_t;
-  using pointer = const directory_entry *;
-  using reference = const directory_entry &;
-  using iterator_category = std::input_iterator_tag;
-
   virtual const directory_entry &operator*() const = 0;
 
   const directory_entry *operator->() const { return &(**this); }
 
+  const directory_entry &entry() const { return **this; }
+
   virtual directory_iterator &operator++() = 0;
-  virtual directory_iterator &incremenet(error_code &ec) = 0;
-  virtual std::uintptr_t hash() const = 0;
+  virtual directory_iterator &increment(error_code &ec) = 0;
 
-  bool operator==(const directory_iterator &rhs) const {
-    return hash() == rhs.hash();
-  }
+  virtual directory_iterator &increment() { return ++(*this); }
 
-  bool operator!=(const directory_iterator &rhs) const {
-    return hash() != rhs.hash();
-  }
+  virtual bool at_end() const = 0;
+
+  operator bool() const { return !at_end(); }
 };
 
 class directory_entry {

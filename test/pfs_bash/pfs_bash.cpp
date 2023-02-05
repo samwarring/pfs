@@ -206,14 +206,11 @@ public:
           fs_->current_path(tokens[1]);
 
         } else if (parsed(tokens, "ls", "DIR")) {
-          auto dir = fs_->iterate_directory(tokens[1]);
-          auto &it = dir->begin();
-          auto &end = dir->end();
-          for (; it != end; ++it) {
-            auto status = it->status();
-            std::cout << status.permissions() << "  " << std::setw(14)
-                      << std::left << status.type() << "  "
-                      << it->path().filename().string() << std::endl;
+          for (auto it = fs_->directory_iterator(tokens[1]); *it; ++(*it)) {
+            auto &entry = it->entry();
+            std::cout << entry.status().permissions() << "  " << std::setw(9)
+                      << std::left << entry.status().type() << "  "
+                      << entry.path().filename().string() << std::endl;
           }
 
         } else if (parsed(tokens, "mkdir", "DIR")) {

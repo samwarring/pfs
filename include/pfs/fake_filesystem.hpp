@@ -650,13 +650,13 @@ public:
     return ret;
   }
 
-  std::unique_ptr<iterable_directory>
-  iterate_directory(const path &p) const override {
+  std::unique_ptr<pfs::directory_iterator>
+  directory_iterator(const path &p) const override {
     return nullptr; // TODO
   }
 
-  std::unique_ptr<iterable_directory>
-  iterate_directory(const path &p, error_code &ec) const override {
+  std::unique_ptr<pfs::directory_iterator>
+  directory_iterator(const path &p, error_code &ec) const override {
     return nullptr; // TODO
   }
 };

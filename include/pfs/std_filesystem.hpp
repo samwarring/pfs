@@ -44,34 +44,12 @@ public:
     return *this;
   }
 
-  directory_iterator &incremenet(error_code &ec) override {
+  directory_iterator &increment(error_code &ec) override {
     it_.increment(ec);
     return *this;
   }
 
-  std::uintptr_t hash() const override {
-    if (it_ == end_) {
-      return 0;
-    } else {
-      // TODO: Major assumption here. Is this right? I doubt it.
-      // Returns address of the pointed-to std::filesystem::directory_entry.
-      return reinterpret_cast<std::uintptr_t>(&(*it_));
-    }
-  }
-};
-
-class std_iterable_directory final : public iterable_directory {
-private:
-  std_directory_iterator begin_;
-  std_directory_iterator end_;
-
-public:
-  std_iterable_directory(const std::filesystem::directory_iterator &it)
-      : begin_(it) {}
-
-  directory_iterator &begin() override { return begin_; }
-
-  directory_iterator &end() override { return end_; }
+  bool at_end() const override { return it_ == end_; }
 };
 
 class std_filesystem final : public filesystem {
@@ -157,16 +135,16 @@ public:
     return std::filesystem::status(p, ec);
   }
 
-  std::unique_ptr<iterable_directory>
-  iterate_directory(const path &p) const override {
+  std::unique_ptr<pfs::directory_iterator>
+  directory_iterator(const path &p) const override {
     std::filesystem::directory_iterator it(p);
-    return std::make_unique<std_iterable_directory>(it);
+    return std::make_unique<std_directory_iterator>(it);
   }
 
-  std::unique_ptr<iterable_directory>
-  iterate_directory(const path &p, error_code &ec) const override {
+  std::unique_ptr<pfs::directory_iterator>
+  directory_iterator(const path &p, error_code &ec) const override {
     std::filesystem::directory_iterator it(p, ec);
-    return std::make_unique<std_iterable_directory>(it);
+    return std::make_unique<std_directory_iterator>(it);
   }
 };
 
