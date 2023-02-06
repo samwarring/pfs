@@ -1,5 +1,6 @@
 #include <catch2/catch_test_macros.hpp>
 #include <pfs/fake_filesystem.hpp>
+#include <set>
 
 TEST_CASE("fake_filesystem") {
   pfs::fake_filesystem fs;
@@ -114,5 +115,31 @@ TEST_CASE("fake_filesystem") {
     REQUIRE_NOTHROW(fs.rename("a/b/c", "a/foo"));
     REQUIRE(fs.is_directory("a/foo"));
     REQUIRE(!fs.is_directory("a/b/c"));
+  }
+
+  SECTION("directory_iterator") {
+    REQUIRE(fs.create_directories("a"));
+    REQUIRE(fs.create_directories("b"));
+    REQUIRE(fs.create_directories("c"));
+    std::set<pfs::path> expected{"a", "b", "c"};
+    std::set<pfs::path> actual;
+    for (auto it = fs.directory_iterator("."); !it->at_end(); it->increment()) {
+      actual.insert(it->path().filename());
+    }
+    REQUIRE(actual == expected);
+  }
+
+  SECTION("recursive_directory_iterator") {
+    REQUIRE(fs.create_directories("a/b/c"));
+    REQUIRE(fs.create_directories("x/y/z"));
+    REQUIRE(fs.create_directories("a/b/i"));
+    std::set<pfs::path> expected{"./a", "./a/b", "./a/b/c", "./a/b/i",
+                                 "./x", "./x/y", "./x/y/z"};
+    std::set<pfs::path> actual;
+    for (auto it = fs.recursive_directory_iterator("."); !it->at_end();
+         it->increment()) {
+      actual.insert(it->path());
+    }
+    REQUIRE(actual == expected);
   }
 }

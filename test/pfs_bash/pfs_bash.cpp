@@ -66,11 +66,14 @@ private:
     std::cout << '\n'
               << "Available commands:\n"
               << '\n'
-              << "  help           Print this message.\n"
+              << "  h, help        Print this message.\n"
               << "  real           Switch to real filesystem.\n"
               << "  fake           Switch to fake filesystem.\n"
               << "  pwd            Print working directory.\n"
               << "  cd DIR         Change working directory.\n"
+              << "  ls DIR         List contents of directory.\n"
+              << "  lsr DIR        Recursively list contents of directory.\n"
+              << "  lsri DIR       Interactively recurse directory contents.\n"
               << "  mkdir DIR      Create new directory. Parent must exist.\n"
               << "  mkdirs DIR     Create directory and subdirectories.\n"
               << "  rm PATH        Remove file or empty directory.\n"
@@ -80,7 +83,24 @@ private:
               << "  stat PATH      Prints properties file or directory.\n"
               << "  exist PATH     Checks if the path exists.\n"
               << "  isdir PATH     Checks if the path is a directory.\n"
-              << "  exit           Exit this program.\n"
+              << "  x, exit        Exit this program.\n"
+              << std::endl;
+  }
+
+  static void print_lsri_help() {
+    std::cout << '\n'
+              << "You have entered interactive recursive list mode. This\n"
+              << "mode uses different commands. To return to normal mode\n"
+              << "use the `x` or `exit` commands.\n"
+              << '\n'
+              << "Available Commands:\n"
+              << '\n'
+              << "  h, help  Print this help message.\n"
+              << "  i        Step into. If not directory, step over.\n"
+              << "  n        Step over. If directory, do not enter.\n"
+              << "  o        Step out. Leave current directory.\n"
+              << "  d        Print current depth.\n"
+              << "  x, exit  Return to normal mode.\n"
               << std::endl;
   }
 
@@ -91,6 +111,13 @@ private:
       std::cout << "[fake] ";
     }
     std::cout << '[' << fs_->current_path().string() << "] ?> ";
+    std::cout.flush();
+  }
+
+  void print_lsri_prompt(pfs::recursive_directory_iterator &it) {
+    std::cout << (fs_ == &real_fs_ ? "[real] " : "[fake] ")
+              << it.status().permissions() << "  " << std::setw(9) << std::left
+              << it.status().type() << "  [" << it.path().string() << "] ?> ";
     std::cout.flush();
   }
 
@@ -174,6 +201,58 @@ private:
     return false;
   }
 
+  void interactive_recursive_list(pfs::path p) {
+    auto it = fs_->recursive_directory_iterator(p);
+    if (it->at_end()) {
+      std::cout << "The directory is empty." << std::endl;
+      return;
+    }
+    print_lsri_help();
+    try {
+      for (;;) {
+        print_lsri_prompt(*it);
+        auto tokens = read_command();
+        if (tokens.empty()) {
+          continue;
+
+        } else if (parsed(tokens, "h") || parsed(tokens, "help")) {
+          print_lsri_help();
+
+        } else if (parsed(tokens, "x") || parsed(tokens, "exit")) {
+          std::cout << "Returning to normal mode." << std::endl;
+          break;
+
+        } else if (parsed(tokens, "i")) {
+          it->increment();
+
+        } else if (parsed(tokens, "n")) {
+          it->disable_recursion_pending();
+          it->increment();
+
+        } else if (parsed(tokens, "o")) {
+          it->pop();
+
+        } else if (parsed(tokens, "d")) {
+          std::cout << "Depth: " << it->depth() << std::endl;
+
+        } else {
+          std::cout << "Unrecognized command. Try running `help`." << std::endl;
+        }
+
+        if (it->at_end()) {
+          std::cout << "Recursive iteration complete. Returning to "
+                       "normal mode."
+                    << std::endl;
+          break;
+        }
+      }
+
+    } catch (const std::filesystem::filesystem_error &e) {
+      std::cout << "Caught exception: " << e.what() << '\n'
+                << "Returning to normal mode." << std::endl;
+    };
+  }
+
 public:
   void run() {
     std::cout << std::boolalpha;
@@ -186,10 +265,10 @@ public:
         if (tokens.empty()) {
           continue;
 
-        } else if (parsed(tokens, "help")) {
+        } else if (parsed(tokens, "h") || parsed(tokens, "help")) {
           print_help();
 
-        } else if (parsed(tokens, "exit")) {
+        } else if (parsed(tokens, "x") || parsed(tokens, "exit")) {
           break;
 
         } else if (parsed(tokens, "real")) {
@@ -203,6 +282,25 @@ public:
 
         } else if (parsed(tokens, "cd", "DIR")) {
           fs_->current_path(tokens[1]);
+
+        } else if (parsed(tokens, "ls", "DIR")) {
+          for (auto it = fs_->directory_iterator(tokens[1]); !it->at_end();
+               it->increment()) {
+            std::cout << it->status().permissions() << "  " << std::setw(9)
+                      << std::left << it->status().type() << "  "
+                      << it->path().filename().string() << std::endl;
+          }
+
+        } else if (parsed(tokens, "lsr", "DIR")) {
+          for (auto it = fs_->recursive_directory_iterator(tokens[1]);
+               !it->at_end(); it->increment()) {
+            std::cout << it->status().permissions() << "  " << std::setw(9)
+                      << std::left << it->status().type() << "  "
+                      << it->path().string() << std::endl;
+          }
+
+        } else if (parsed(tokens, "lsri", "DIR")) {
+          interactive_recursive_list(tokens[1]);
 
         } else if (parsed(tokens, "mkdir", "DIR")) {
           std::cout << fs_->create_directory(tokens[1]) << std::endl;

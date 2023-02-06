@@ -12,17 +12,54 @@ namespace pfs {
 class fake_filesystem final : public filesystem {
 private:
   struct node;
+
+  /**
+   * @brief Shorthand for a list of nodes.
+   *
+   * @details Node lists appear in 2 contexts. (1) Listing the contents of
+   * a directory. In this case, the list must remain sorted at all times. It can
+   * be modified with the @c insert_node, @c remove_node, and @c find_node
+   * methods to respect its sorted order. (2) Listing the nodes of each part of
+   * a filesystem path. In this case, the order of the list describes a path
+   * through the filesystem tree, where each node is a parent of the following
+   * node. The final node (commonly referred via `node_path.back()`) is the
+   * leaf-node.
+   */
   using node_list = std::vector<std::shared_ptr<node>>;
 
+  /**
+   * @brief Underlying node in the filesystem tree.
+   *
+   * @details The same node structure is used for all file types (regular file,
+   * directory, symlink, etc).
+   */
   struct node {
-    path name;
-    file_type type;
-    bool is_drive;
-    node_list dents;
+    path name;       ///< File or directory name. Not a full path.
+    file_type type;  ///< Type of node: regular file, directory, etc.
+    node_list dents; ///< List of child nodes, if this is a directory.
   };
 
+  /**
+   * @brief A node that contains all roots.
+   *
+   * @details The meta-root is effectively a directory that contains a child
+   * for each "root" of the system. On POSIX, the meta-root has only one child
+   * for the root directory (/). On Windows, the meta-root has one child for
+   * each drive letter (C:, D:, etc.), and each of those nodes have a single
+   * child for their own root directory.
+   */
   std::shared_ptr<node> meta_root_;
+
+  /**
+   * @brief List of nodes through the tree leading to the CWD.
+   *
+   * @details The node path begins with the meta-root node.
+   */
   node_list cwd_nodes_;
+
+  /**
+   * @brief The current working directory. Always stored as an absolute path.
+   */
   path cwd_;
 
   /**
@@ -170,6 +207,215 @@ private:
     auto pit = traverse(node_path, p.begin(), p.end());
     return {std::move(node_path), pit};
   }
+
+  class fake_directory_iterator final : public pfs::directory_iterator {
+  private:
+    pfs::path path_;      ///< Path to the directory being iterated.
+    node_list node_path_; ///< Node path to the directory being iterated.
+    node_list::iterator dent_iter_; ///< Iterator to the child nodes.
+    pfs::path dent_path_;           ///< Path of the current directory entry.
+    file_status dent_status_;       ///< Status of the current directory entry.
+
+    /**
+     * @brief Updates the internal directory entry.
+     */
+    void refresh() {
+      if (!at_end()) {
+        dent_path_ = path_ / (*dent_iter_)->name;
+        dent_status_.type((*dent_iter_)->type);
+      }
+    }
+
+  public:
+    /**
+     * @brief Constructs a default end-iterator.
+     */
+    fake_directory_iterator() = default;
+
+    /**
+     * @brief Constructs a non-recursive directory iterator.
+     *
+     * @pre The path exists, and corresponds to the node_path.
+     *
+     * @param p Path to the directory being iterated.
+     * @param node_path List of nodes leading to the directory.
+     */
+    fake_directory_iterator(pfs::path p, node_list &&node_path)
+        : path_(std::move(p)), node_path_(std::move(node_path)) {
+      dent_iter_ = node_path_.back()->dents.begin();
+      refresh();
+    }
+
+    pfs::directory_iterator &increment() override {
+      ++dent_iter_;
+      refresh();
+      return *this;
+    }
+
+    pfs::directory_iterator &increment(error_code &ec) override {
+      increment();
+      ec.clear();
+      return *this;
+    }
+
+    bool at_end() const override {
+      return !node_path_.empty() &&
+             dent_iter_ == node_path_.back()->dents.end();
+    }
+
+    const pfs::path &path() const noexcept override { return dent_path_; }
+
+    file_status status() const override { return dent_status_; }
+
+    file_status status(error_code &ec) const override {
+      ec.clear();
+      return dent_status_;
+    }
+  };
+
+  class fake_recursive_directory_iterator final
+      : public pfs::recursive_directory_iterator {
+  private:
+    /**
+     * @brief A pair of directory entry iterators.
+     *
+     * @details The first element is an iterator into a list of child nodes for
+     * a directory. The second element is the end iterator for that same list.
+     */
+    using node_range = std::pair<node_list::iterator, node_list::iterator>;
+
+    pfs::path path_; ///< Path to the directory being iterated. Changes as new
+                     ///< directories are entered.
+    node_list node_path_;           ///< Node path corresponding to path_.
+    std::vector<node_range> stack_; ///< Stack of node ranges to resume when
+                                    ///< finished iterating through the current
+                                    ///< directory.
+    node_range range_; ///< Iterators for the current directory being iterated.
+    pfs::path dent_path_;          ///< Path of the current directory entry.
+    file_status dent_status_;      ///< Status of the current directory entry.
+    bool recursion_pending_{true}; ///< True if directories should be entered.
+    int depth_{0}; ///< Depth from the starting directory (0-based).
+
+    /**
+     * @brief Updates the internal directory entry.
+     */
+    void refresh() {
+      if (!at_end()) {
+        dent_path_ = path_ / cur().name;
+        dent_status_.type(cur().type);
+      }
+    }
+
+    /**
+     * @brief Gets reference to the node of the current directory entry.
+     */
+    node &cur() { return *(range_.first->get()); }
+
+  public:
+    /**
+     * @brief Constructs a default end-iterator.
+     */
+    fake_recursive_directory_iterator()
+        : range_(node_path_.begin(), node_path_.end()) {}
+
+    /**
+     * @brief Constructs a recursive directory iterator.
+     *
+     * @pre The path exists, and corresponds to the node_path.
+     *
+     * @param p Path to the directory being iterated.
+     * @param node_path List of nodes leading to the directory.
+     */
+    fake_recursive_directory_iterator(pfs::path p, node_list &&node_path)
+        : path_(std::move(p)), node_path_(std::move(node_path)),
+          range_(node_path_.back()->dents.begin(),
+                 node_path_.back()->dents.end()) {
+      refresh();
+    }
+
+    recursive_directory_iterator &increment(error_code &ec) override {
+      if (at_end()) {
+        // Do nothing.
+      }
+      if (cur().type == file_type::directory && !cur().dents.empty() &&
+          recursion_pending_) {
+        // Step into directory.
+        path_ /= cur().name;
+        node_range subdir_range{cur().dents.begin(), cur().dents.end()};
+        ++range_.first;
+        stack_.push_back(range_);
+        ++depth_;
+        range_ = subdir_range;
+      } else {
+        // Step over. If reached end of current directory, need to go back up.
+        ++range_.first;
+        while (range_.first == range_.second && !stack_.empty()) {
+          path_ = path_.parent_path();
+          range_ = stack_.back();
+          stack_.pop_back();
+          --depth_;
+        }
+      }
+      // Update entry.
+      refresh();
+      recursion_pending_ = true;
+      ec.clear();
+      return *this;
+    }
+
+    recursive_directory_iterator &increment() override {
+      error_code ec;
+      increment(ec);
+      if (ec) {
+        throw filesystem_error("recursive_directory_iterator::increment", ec);
+      }
+      return *this;
+    }
+
+    bool at_end() const override { return range_.first == range_.second; }
+
+    int depth() const override { return depth_; }
+
+    bool recursion_pending() const override { return recursion_pending_; }
+
+    void pop(error_code &ec) override {
+      if (stack_.empty()) {
+        // Set to end
+        range_.first = range_.second;
+        depth_ = 0;
+      } else {
+        // Return to parent directory. If that directory is finished, return to
+        // it's parent, etc.
+        do {
+          path_ = path_.parent_path();
+          range_ = stack_.back();
+          stack_.pop_back();
+          --depth_;
+        } while (range_.first == range_.second && !stack_.empty());
+      }
+      refresh();
+      ec.clear();
+    }
+
+    void pop() override {
+      error_code ec;
+      pop(ec);
+      if (ec) {
+        throw filesystem_error("recursive_directory_iterator::pop", ec);
+      }
+    }
+
+    void disable_recursion_pending() override { recursion_pending_ = false; }
+
+    const pfs::path &path() const noexcept override { return dent_path_; }
+
+    file_status status() const override { return dent_status_; }
+
+    file_status status(error_code &ec) const override {
+      ec.clear();
+      return dent_status_;
+    }
+  };
 
 public:
   /**
@@ -343,7 +589,7 @@ public:
       if (node_path.back()->type == file_type::directory) {
         auto new_dir = std::make_shared<node>();
         new_dir->type = file_type::directory;
-        new_dir->name = p.stem();
+        new_dir->name = p.filename();
         insert_node(node_path.back()->dents, new_dir);
         ec.clear();
         return true;
@@ -646,6 +892,70 @@ public:
     auto ret = status(p, ec);
     if (ec) {
       throw filesystem_error("status", ec);
+    }
+    return ret;
+  }
+
+  std::unique_ptr<pfs::directory_iterator>
+  directory_iterator(const path &p, error_code &ec) const override {
+    if (p.empty()) {
+      ec = std::make_error_code(std::errc::no_such_file_or_directory);
+      return std::make_unique<fake_directory_iterator>();
+    }
+    auto [node_path, pit] = traverse(p);
+    if (pit != p.end()) {
+      ec = std::make_error_code(std::errc::no_such_file_or_directory);
+      return std::make_unique<fake_directory_iterator>();
+    }
+    if (node_path.back()->type != file_type::directory) {
+      ec = std::make_error_code(std::errc::not_a_directory);
+      return std::make_unique<fake_directory_iterator>();
+    }
+    // TODO: Path should be an absolute path.
+    auto ret =
+        std::make_unique<fake_directory_iterator>(p, std::move(node_path));
+    ec.clear();
+    return ret;
+  }
+
+  std::unique_ptr<pfs::directory_iterator>
+  directory_iterator(const path &p) const override {
+    error_code ec;
+    auto ret = directory_iterator(p, ec);
+    if (ec) {
+      throw filesystem_error("directory_iterator", ec);
+    }
+    return ret;
+  }
+
+  // TODO: Can I return nullptr on error?
+  std::unique_ptr<pfs::recursive_directory_iterator>
+  recursive_directory_iterator(const path &p, error_code &ec) const override {
+    if (p.empty()) {
+      ec = std::make_error_code(std::errc::no_such_file_or_directory);
+      return std::make_unique<fake_recursive_directory_iterator>();
+    }
+    auto [node_path, pit] = traverse(p);
+    if (pit != p.end()) {
+      ec = std::make_error_code(std::errc::no_such_file_or_directory);
+      return std::make_unique<fake_recursive_directory_iterator>();
+    }
+    if (node_path.back()->type != file_type::directory) {
+      ec = std::make_error_code(std::errc::not_a_directory);
+      return std::make_unique<fake_recursive_directory_iterator>();
+    }
+    auto ret = std::make_unique<fake_recursive_directory_iterator>(
+        p, std::move(node_path));
+    ec.clear();
+    return ret;
+  }
+
+  std::unique_ptr<pfs::recursive_directory_iterator>
+  recursive_directory_iterator(const path &p) const override {
+    error_code ec;
+    auto ret = recursive_directory_iterator(p, ec);
+    if (ec) {
+      throw filesystem_error("recursive_directory_iterator", ec);
     }
     return ret;
   }
