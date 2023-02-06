@@ -15,7 +15,7 @@ using std::filesystem::path;
 
 class filesystem;
 class directory_iterator;
-class directory_entry;
+class recursive_directory_iterator;
 
 class filesystem {
 public:
@@ -47,6 +47,10 @@ public:
   directory_iterator(const path &p) const = 0;
   virtual std::unique_ptr<pfs::directory_iterator>
   directory_iterator(const path &p, error_code &ec) const = 0;
+  virtual std::unique_ptr<pfs::recursive_directory_iterator>
+  recursive_directory_iterator(const path &p) const = 0;
+  virtual std::unique_ptr<pfs::recursive_directory_iterator>
+  recursive_directory_iterator(const path &p, error_code &ec) const = 0;
 };
 
 class directory_iterator {
@@ -54,6 +58,20 @@ public:
   virtual directory_iterator &increment() = 0;
   virtual directory_iterator &increment(error_code &ec) = 0;
   virtual bool at_end() const = 0;
+  virtual const path &path() const noexcept = 0;
+  virtual file_status status() const = 0;
+  virtual file_status status(error_code &ec) const = 0;
+};
+
+class recursive_directory_iterator {
+public:
+  virtual recursive_directory_iterator &increment() = 0;
+  virtual recursive_directory_iterator &increment(error_code &ec) = 0;
+  virtual bool at_end() const = 0;
+  virtual bool recursion_pending() const = 0;
+  virtual void pop() = 0;
+  virtual void pop(error_code &ec) = 0;
+  virtual void disable_recursion_pending() = 0;
   virtual const path &path() const noexcept = 0;
   virtual file_status status() const = 0;
   virtual file_status status(error_code &ec) const = 0;

@@ -11,8 +11,6 @@ private:
   std::filesystem::directory_iterator it_;
 
 public:
-  std_directory_iterator() = default;
-
   std_directory_iterator(const std::filesystem::directory_iterator &it)
       : it_(it) {}
 
@@ -27,6 +25,44 @@ public:
   }
 
   bool at_end() const override { return it_ == end_; }
+
+  const pfs::path &path() const noexcept override { return it_->path(); }
+
+  file_status status() const override { return it_->status(); }
+
+  file_status status(error_code &ec) const override { return it_->status(ec); }
+};
+
+class std_recursive_directory_iterator final
+    : public recursive_directory_iterator {
+private:
+  inline static std::filesystem::recursive_directory_iterator end_{};
+  std::filesystem::recursive_directory_iterator it_;
+
+public:
+  std_recursive_directory_iterator(
+      const std::filesystem::recursive_directory_iterator &&it)
+      : it_(std::move(it)) {}
+
+  recursive_directory_iterator &increment() override {
+    ++it_;
+    return *this;
+  }
+
+  recursive_directory_iterator &increment(error_code &ec) override {
+    it_.increment(ec);
+    return *this;
+  }
+
+  bool at_end() const override { return it_ == end_; }
+
+  bool recursion_pending() const override { return it_.recursion_pending(); }
+
+  void pop() override { it_.pop(); }
+
+  void pop(error_code &ec) override { it_.pop(ec); }
+
+  void disable_recursion_pending() override { it_.disable_recursion_pending(); }
 
   const pfs::path &path() const noexcept override { return it_->path(); }
 
@@ -128,6 +164,18 @@ public:
   directory_iterator(const path &p, error_code &ec) const override {
     std::filesystem::directory_iterator it(p, ec);
     return std::make_unique<std_directory_iterator>(it);
+  }
+
+  std::unique_ptr<pfs::recursive_directory_iterator>
+  recursive_directory_iterator(const path &p) const override {
+    std::filesystem::recursive_directory_iterator it(p);
+    return std::make_unique<std_recursive_directory_iterator>(std::move(it));
+  }
+
+  std::unique_ptr<pfs::recursive_directory_iterator>
+  recursive_directory_iterator(const path &p, error_code &ec) const override {
+    std::filesystem::recursive_directory_iterator it(p, ec);
+    return std::make_unique<std_recursive_directory_iterator>(std::move(it));
   }
 };
 

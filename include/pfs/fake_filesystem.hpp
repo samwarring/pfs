@@ -754,6 +754,16 @@ public:
     }
     return ret;
   }
+
+  std::unique_ptr<pfs::recursive_directory_iterator>
+  recursive_directory_iterator(const path &p) const override {
+    return nullptr; // TODO
+  }
+
+  std::unique_ptr<pfs::recursive_directory_iterator>
+  recursive_directory_iterator(const path &p, error_code &ec) const override {
+    return nullptr; // TODO
+  }
 };
 
 } // namespace pfs

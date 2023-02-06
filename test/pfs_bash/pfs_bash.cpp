@@ -72,6 +72,7 @@ private:
               << "  pwd            Print working directory.\n"
               << "  cd DIR         Change working directory.\n"
               << "  ls DIR         List contents of directory.\n"
+              << "  lsr DIR        Recursively list contents of directory.\n"
               << "  mkdir DIR      Create new directory. Parent must exist.\n"
               << "  mkdirs DIR     Create directory and subdirectories.\n"
               << "  rm PATH        Remove file or empty directory.\n"
@@ -211,6 +212,14 @@ public:
             std::cout << it->status().permissions() << "  " << std::setw(9)
                       << std::left << it->status().type() << "  "
                       << it->path().filename().string() << std::endl;
+          }
+
+        } else if (parsed(tokens, "lsr", "DIR")) {
+          for (auto it = fs_->recursive_directory_iterator(tokens[1]);
+               !it->at_end(); it->increment()) {
+            std::cout << it->status().permissions() << "  " << std::setw(9)
+                      << std::left << it->status().type() << "  "
+                      << it->path().string() << std::endl;
           }
 
         } else if (parsed(tokens, "mkdir", "DIR")) {
