@@ -55,6 +55,7 @@ public:
 
 class directory_iterator {
 public:
+  virtual ~directory_iterator() = default;
   virtual directory_iterator &increment() = 0;
   virtual directory_iterator &increment(error_code &ec) = 0;
   virtual bool at_end() const = 0;
@@ -65,6 +66,7 @@ public:
 
 class recursive_directory_iterator {
 public:
+  virtual ~recursive_directory_iterator() = default;
   virtual recursive_directory_iterator &increment() = 0;
   virtual recursive_directory_iterator &increment(error_code &ec) = 0;
   virtual bool at_end() const = 0;

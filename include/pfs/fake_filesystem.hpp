@@ -528,7 +528,7 @@ public:
       if (node_path.back()->type == file_type::directory) {
         auto new_dir = std::make_shared<node>();
         new_dir->type = file_type::directory;
-        new_dir->name = p.stem();
+        new_dir->name = p.filename();
         insert_node(node_path.back()->dents, new_dir);
         ec.clear();
         return true;
