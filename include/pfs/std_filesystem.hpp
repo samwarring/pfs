@@ -5,39 +5,16 @@
 
 namespace pfs {
 
-class std_directory_entry final : public directory_entry {
-private:
-  const std::filesystem::directory_entry *ent_;
-
-public:
-  std_directory_entry &operator=(const std::filesystem::directory_entry &ent) {
-    ent_ = &ent;
-    return *this;
-  }
-
-  const pfs::path &path() const noexcept override { return ent_->path(); }
-
-  file_status status() const override { return ent_->status(); }
-
-  file_status status(error_code &ec) const override { return ent_->status(ec); }
-};
-
 class std_directory_iterator final : public directory_iterator {
 private:
   inline static std::filesystem::directory_iterator end_{};
   std::filesystem::directory_iterator it_;
-  mutable std_directory_entry ent_;
 
 public:
   std_directory_iterator() = default;
 
   std_directory_iterator(const std::filesystem::directory_iterator &it)
       : it_(it) {}
-
-  const directory_entry &entry() const override {
-    ent_ = *it_;
-    return ent_;
-  }
 
   directory_iterator &increment() override {
     ++it_;
@@ -50,6 +27,12 @@ public:
   }
 
   bool at_end() const override { return it_ == end_; }
+
+  const pfs::path &path() const noexcept override { return it_->path(); }
+
+  file_status status() const override { return it_->status(); }
+
+  file_status status(error_code &ec) const override { return it_->status(ec); }
 };
 
 class std_filesystem final : public filesystem {

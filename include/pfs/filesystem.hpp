@@ -51,28 +51,10 @@ public:
 
 class directory_iterator {
 public:
-  virtual const directory_entry &entry() const = 0;
-
-  const directory_entry &operator*() const { return entry(); }
-
-  const directory_entry *operator->() const { return &entry(); }
-
   virtual directory_iterator &increment() = 0;
   virtual directory_iterator &increment(error_code &ec) = 0;
-
-  directory_iterator &operator++() { return increment(); }
-
   virtual bool at_end() const = 0;
-
-  operator bool() const { return !at_end(); }
-};
-
-class directory_entry {
-public:
   virtual const path &path() const noexcept = 0;
-
-  operator const pfs::path &() const noexcept { return path(); }
-
   virtual file_status status() const = 0;
   virtual file_status status(error_code &ec) const = 0;
 };

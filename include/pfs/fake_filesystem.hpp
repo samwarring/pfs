@@ -171,71 +171,61 @@ private:
     return {std::move(node_path), pit};
   }
 
-  class fake_directory_entry final : public directory_entry {
-  private:
-    pfs::path path_;
-    file_status status_;
-
-  public:
-    void assign(pfs::path &&p, file_status s) {
-      path_ = std::move(p);
-      status_ = s;
-    }
-
-    const pfs::path &path() const noexcept override { return path_; }
-
-    file_status status() const override { return status_; }
-
-    file_status status(error_code &ec) const override {
-      ec.clear();
-      return status_;
-    }
-  };
-
   class fake_directory_iterator final : public pfs::directory_iterator {
   private:
-    path path_;
+    pfs::path path_;
     node_list node_path_;
     node_list::iterator dent_iter_;
-    mutable fake_directory_entry ent_;
+    pfs::path dent_path_;
+    file_status dent_status_;
 
-  public:
-    fake_directory_iterator(path p, node_list &&node_path)
-        : path_(std::move(p)), node_path_(std::move(node_path)) {
-      dent_iter_ = node_path_.back()->dents.begin();
+    void refresh() {
+      if (!at_end()) {
+        dent_path_ = path_ / (*dent_iter_)->name;
+        dent_status_.type((*dent_iter_)->type);
+      }
     }
 
-    const directory_entry &entry() const override {
-      file_status s;
-      s.type((*dent_iter_)->type);
-      ent_.assign(path_ / (*dent_iter_)->name, s);
-      return ent_;
+  public:
+    fake_directory_iterator(pfs::path p, node_list &&node_path)
+        : path_(std::move(p)), node_path_(std::move(node_path)) {
+      dent_iter_ = node_path_.back()->dents.begin();
+      refresh();
     }
 
     pfs::directory_iterator &increment() override {
       ++dent_iter_;
+      refresh();
       return *this;
     }
 
     pfs::directory_iterator &increment(error_code &ec) override {
+      increment();
       ec.clear();
-      ++dent_iter_;
       return *this;
     }
 
     bool at_end() const override {
       return dent_iter_ == node_path_.back()->dents.end();
     }
+
+    const pfs::path &path() const noexcept override { return dent_path_; }
+
+    file_status status() const override { return dent_status_; }
+
+    file_status status(error_code &ec) const override {
+      ec.clear();
+      return dent_status_;
+    }
   };
 
   class fake_directory_iterator_no_such_file final
       : public pfs::directory_iterator {
   private:
-    fake_directory_entry ent_;
+    pfs::path dent_path_;
+    file_status dent_status_;
 
   public:
-    const directory_entry &entry() const override { return ent_; }
-
     pfs::directory_iterator &increment() override { return *this; }
 
     pfs::directory_iterator &increment(error_code &ec) override {
@@ -243,6 +233,15 @@ private:
     }
 
     bool at_end() const override { return true; }
+
+    const pfs::path &path() const noexcept override { return dent_path_; }
+
+    file_status status() const override { return dent_status_; }
+
+    file_status status(error_code &ec) const override {
+      ec.clear();
+      return dent_status_;
+    }
   };
 
 public:
