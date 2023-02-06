@@ -187,6 +187,8 @@ private:
     }
 
   public:
+    fake_directory_iterator() = default;
+
     fake_directory_iterator(pfs::path p, node_list &&node_path)
         : path_(std::move(p)), node_path_(std::move(node_path)) {
       dent_iter_ = node_path_.back()->dents.begin();
@@ -206,33 +208,9 @@ private:
     }
 
     bool at_end() const override {
-      return dent_iter_ == node_path_.back()->dents.end();
+      return !node_path_.empty() &&
+             dent_iter_ == node_path_.back()->dents.end();
     }
-
-    const pfs::path &path() const noexcept override { return dent_path_; }
-
-    file_status status() const override { return dent_status_; }
-
-    file_status status(error_code &ec) const override {
-      ec.clear();
-      return dent_status_;
-    }
-  };
-
-  class fake_directory_iterator_no_such_file final
-      : public pfs::directory_iterator {
-  private:
-    pfs::path dent_path_;
-    file_status dent_status_;
-
-  public:
-    pfs::directory_iterator &increment() override { return *this; }
-
-    pfs::directory_iterator &increment(error_code &ec) override {
-      return *this;
-    }
-
-    bool at_end() const override { return true; }
 
     const pfs::path &path() const noexcept override { return dent_path_; }
 
@@ -846,16 +824,16 @@ public:
   directory_iterator(const path &p, error_code &ec) const override {
     if (p.empty()) {
       ec = std::make_error_code(std::errc::no_such_file_or_directory);
-      return std::make_unique<fake_directory_iterator_no_such_file>();
+      return std::make_unique<fake_directory_iterator>();
     }
     auto [node_path, pit] = traverse(p);
     if (pit != p.end()) {
       ec = std::make_error_code(std::errc::no_such_file_or_directory);
-      return std::make_unique<fake_directory_iterator_no_such_file>();
+      return std::make_unique<fake_directory_iterator>();
     }
     if (node_path.back()->type != file_type::directory) {
       ec = std::make_error_code(std::errc::not_a_directory);
-      return std::make_unique<fake_directory_iterator_no_such_file>();
+      return std::make_unique<fake_directory_iterator>();
     }
     // TODO: Path should be an absolute path.
     auto ret =
