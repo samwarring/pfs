@@ -256,6 +256,7 @@ private:
     pfs::path dent_path_;
     file_status dent_status_;
     bool recursion_pending_{true};
+    int depth_{0};
 
     void refresh() {
       if (!at_end()) {
@@ -289,6 +290,7 @@ private:
         node_range subdir_range{cur().dents.begin(), cur().dents.end()};
         ++range_.first;
         stack_.push_back(range_);
+        ++depth_;
         range_ = subdir_range;
       } else {
         // Step over. If reached end of current directory, need to go back up.
@@ -297,6 +299,7 @@ private:
           path_ = path_.parent_path();
           range_ = stack_.back();
           stack_.pop_back();
+          --depth_;
         }
       }
       // Update entry.
@@ -317,12 +320,15 @@ private:
 
     bool at_end() const override { return range_.first == range_.second; }
 
+    int depth() const override { return depth_; }
+
     bool recursion_pending() const override { return recursion_pending_; }
 
     void pop(error_code &ec) override {
       if (stack_.empty()) {
         // Set to end
         range_.first = range_.second;
+        depth_ = 0;
       } else {
         // Return to parent directory. If that directory is finished, return to
         // it's parent, etc.
@@ -330,6 +336,7 @@ private:
           path_ = path_.parent_path();
           range_ = stack_.back();
           stack_.pop_back();
+          --depth_;
         } while (range_.first == range_.second && !stack_.empty());
       }
       refresh();

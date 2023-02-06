@@ -99,6 +99,7 @@ private:
               << "  i        Step into. If not directory, step over.\n"
               << "  n        Step over. If directory, do not enter.\n"
               << "  o        Step out. Leave current directory.\n"
+              << "  d        Print current depth.\n"
               << "  x, exit  Return to normal mode.\n"
               << std::endl;
   }
@@ -230,6 +231,9 @@ private:
 
         } else if (parsed(tokens, "o")) {
           it->pop();
+
+        } else if (parsed(tokens, "d")) {
+          std::cout << "Depth: " << it->depth() << std::endl;
 
         } else {
           std::cout << "Unrecognized command. Try running `help`." << std::endl;

@@ -70,6 +70,7 @@ public:
   virtual recursive_directory_iterator &increment() = 0;
   virtual recursive_directory_iterator &increment(error_code &ec) = 0;
   virtual bool at_end() const = 0;
+  virtual int depth() const = 0;
   virtual bool recursion_pending() const = 0;
   virtual void pop() = 0;
   virtual void pop(error_code &ec) = 0;

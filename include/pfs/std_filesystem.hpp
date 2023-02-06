@@ -56,6 +56,8 @@ public:
 
   bool at_end() const override { return it_ == end_; }
 
+  int depth() const override { return it_.depth(); }
+
   bool recursion_pending() const override { return it_.recursion_pending(); }
 
   void pop() override { it_.pop(); }
