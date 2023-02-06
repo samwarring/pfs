@@ -12,17 +12,54 @@ namespace pfs {
 class fake_filesystem final : public filesystem {
 private:
   struct node;
+
+  /**
+   * @brief Shorthand for a list of nodes.
+   *
+   * @details Node lists appear in 2 contexts. (1) Listing the contents of
+   * a directory. In this case, the list must remain sorted at all times. It can
+   * be modified with the @c insert_node, @c remove_node, and @c find_node
+   * methods to respect its sorted order. (2) Listing the nodes of each part of
+   * a filesystem path. In this case, the order of the list describes a path
+   * through the filesystem tree, where each node is a parent of the following
+   * node. The final node (commonly referred via `node_path.back()`) is the
+   * leaf-node.
+   */
   using node_list = std::vector<std::shared_ptr<node>>;
 
+  /**
+   * @brief Underlying node in the filesystem tree.
+   *
+   * @details The same node structure is used for all file types (regular file,
+   * directory, symlink, etc).
+   */
   struct node {
-    path name;
-    file_type type;
-    bool is_drive;
-    node_list dents;
+    path name;       ///< File or directory name. Not a full path.
+    file_type type;  ///< Type of node: regular file, directory, etc.
+    node_list dents; ///< List of child nodes, if this is a directory.
   };
 
+  /**
+   * @brief A node that contains all roots.
+   *
+   * @details The meta-root is effectively a directory that contains a child
+   * for each "root" of the system. On POSIX, the meta-root has only one child
+   * for the root directory (/). On Windows, the meta-root has one child for
+   * each drive letter (C:, D:, etc.), and each of those nodes have a single
+   * child for their own root directory.
+   */
   std::shared_ptr<node> meta_root_;
+
+  /**
+   * @brief List of nodes through the tree leading to the CWD.
+   *
+   * @details The node path begins with the meta-root node.
+   */
   node_list cwd_nodes_;
+
+  /**
+   * @brief The current working directory. Always stored as an absolute path.
+   */
   path cwd_;
 
   /**
@@ -173,12 +210,15 @@ private:
 
   class fake_directory_iterator final : public pfs::directory_iterator {
   private:
-    pfs::path path_;
-    node_list node_path_;
-    node_list::iterator dent_iter_;
-    pfs::path dent_path_;
-    file_status dent_status_;
+    pfs::path path_;      ///< Path to the directory being iterated.
+    node_list node_path_; ///< Node path to the directory being iterated.
+    node_list::iterator dent_iter_; ///< Iterator to the child nodes.
+    pfs::path dent_path_;           ///< Path of the current directory entry.
+    file_status dent_status_;       ///< Status of the current directory entry.
 
+    /**
+     * @brief Updates the internal directory entry.
+     */
     void refresh() {
       if (!at_end()) {
         dent_path_ = path_ / (*dent_iter_)->name;
@@ -187,8 +227,19 @@ private:
     }
 
   public:
+    /**
+     * @brief Constructs a default end-iterator.
+     */
     fake_directory_iterator() = default;
 
+    /**
+     * @brief Constructs a non-recursive directory iterator.
+     *
+     * @pre The path exists, and corresponds to the node_path.
+     *
+     * @param p Path to the directory being iterated.
+     * @param node_path List of nodes leading to the directory.
+     */
     fake_directory_iterator(pfs::path p, node_list &&node_path)
         : path_(std::move(p)), node_path_(std::move(node_path)) {
       dent_iter_ = node_path_.back()->dents.begin();
@@ -225,17 +276,29 @@ private:
   class fake_recursive_directory_iterator final
       : public pfs::recursive_directory_iterator {
   private:
+    /**
+     * @brief A pair of directory entry iterators.
+     *
+     * @details The first element is an iterator into a list of child nodes for
+     * a directory. The second element is the end iterator for that same list.
+     */
     using node_range = std::pair<node_list::iterator, node_list::iterator>;
 
-    pfs::path path_;
-    node_list node_path_;
-    std::vector<node_range> stack_;
-    node_range range_;
-    pfs::path dent_path_;
-    file_status dent_status_;
-    bool recursion_pending_{true};
-    int depth_{0};
+    pfs::path path_; ///< Path to the directory being iterated. Changes as new
+                     ///< directories are entered.
+    node_list node_path_;           ///< Node path corresponding to path_.
+    std::vector<node_range> stack_; ///< Stack of node ranges to resume when
+                                    ///< finished iterating through the current
+                                    ///< directory.
+    node_range range_; ///< Iterators for the current directory being iterated.
+    pfs::path dent_path_;          ///< Path of the current directory entry.
+    file_status dent_status_;      ///< Status of the current directory entry.
+    bool recursion_pending_{true}; ///< True if directories should be entered.
+    int depth_{0}; ///< Depth from the starting directory (0-based).
 
+    /**
+     * @brief Updates the internal directory entry.
+     */
     void refresh() {
       if (!at_end()) {
         dent_path_ = path_ / cur().name;
@@ -243,13 +306,26 @@ private:
       }
     }
 
+    /**
+     * @brief Gets reference to the node of the current directory entry.
+     */
     node &cur() { return *(range_.first->get()); }
 
   public:
-    // Constructs an end-iterator.
+    /**
+     * @brief Constructs a default end-iterator.
+     */
     fake_recursive_directory_iterator()
         : range_(node_path_.begin(), node_path_.end()) {}
 
+    /**
+     * @brief Constructs a recursive directory iterator.
+     *
+     * @pre The path exists, and corresponds to the node_path.
+     *
+     * @param p Path to the directory being iterated.
+     * @param node_path List of nodes leading to the directory.
+     */
     fake_recursive_directory_iterator(pfs::path p, node_list &&node_path)
         : path_(std::move(p)), node_path_(std::move(node_path)),
           range_(node_path_.back()->dents.begin(),
