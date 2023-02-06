@@ -244,6 +244,118 @@ private:
     }
   };
 
+  class fake_recursive_directory_iterator final
+      : public pfs::recursive_directory_iterator {
+  private:
+    using node_range = std::pair<node_list::iterator, node_list::iterator>;
+
+    pfs::path path_;
+    node_list node_path_;
+    std::vector<node_range> stack_;
+    node_range range_;
+    pfs::path dent_path_;
+    file_status dent_status_;
+    bool recursion_pending_{true};
+
+    void refresh() {
+      if (!at_end()) {
+        dent_path_ = path_ / cur().name;
+        dent_status_.type(cur().type);
+      }
+    }
+
+    node &cur() { return *(range_.first->get()); }
+
+  public:
+    // Constructs an end-iterator.
+    fake_recursive_directory_iterator()
+        : range_(node_path_.begin(), node_path_.end()) {}
+
+    fake_recursive_directory_iterator(pfs::path p, node_list &&node_path)
+        : path_(std::move(p)), node_path_(std::move(node_path)),
+          range_(node_path_.back()->dents.begin(),
+                 node_path_.back()->dents.end()) {
+      refresh();
+    }
+
+    recursive_directory_iterator &increment(error_code &ec) override {
+      if (at_end()) {
+        // Do nothing.
+      }
+      if (cur().type == file_type::directory && !cur().dents.empty() &&
+          recursion_pending_) {
+        // Step into directory.
+        path_ /= cur().name;
+        node_range subdir_range{cur().dents.begin(), cur().dents.end()};
+        ++range_.first;
+        stack_.push_back(range_);
+        range_ = subdir_range;
+      } else {
+        // Step over. If reached end of current directory, need to go back up.
+        ++range_.first;
+        while (range_.first == range_.second && !stack_.empty()) {
+          path_ = path_.parent_path();
+          range_ = stack_.back();
+          stack_.pop_back();
+        }
+      }
+      // Update entry.
+      refresh();
+      recursion_pending_ = true;
+      ec.clear();
+      return *this;
+    }
+
+    recursive_directory_iterator &increment() override {
+      error_code ec;
+      increment(ec);
+      if (ec) {
+        throw filesystem_error("recursive_directory_iterator::increment", ec);
+      }
+      return *this;
+    }
+
+    bool at_end() const override { return range_.first == range_.second; }
+
+    bool recursion_pending() const override { return recursion_pending_; }
+
+    void pop(error_code &ec) override {
+      if (stack_.empty()) {
+        // Set to end
+        range_.first = range_.second;
+      } else {
+        // Return to parent directory. If that directory is finished, return to
+        // it's parent, etc.
+        do {
+          path_ = path_.parent_path();
+          range_ = stack_.back();
+          stack_.pop_back();
+        } while (range_.first == range_.second && !stack_.empty());
+      }
+      refresh();
+      ec.clear();
+    }
+
+    void pop() override {
+      error_code ec;
+      pop(ec);
+      if (ec) {
+        throw filesystem_error("recursive_directory_iterator::pop", ec);
+      }
+    }
+
+    void disable_recursion_pending() override { recursion_pending_ = false; }
+
+    const pfs::path &path() const noexcept override { return dent_path_; }
+
+    file_status status() const override { return dent_status_; }
+
+    file_status status(error_code &ec) const override {
+      ec.clear();
+      return dent_status_;
+    }
+  };
+
 public:
   /**
    * @brief Adds a new root to the filesystem.
@@ -755,14 +867,36 @@ public:
     return ret;
   }
 
+  // TODO: Can I return nullptr on error?
   std::unique_ptr<pfs::recursive_directory_iterator>
-  recursive_directory_iterator(const path &p) const override {
-    return nullptr; // TODO
+  recursive_directory_iterator(const path &p, error_code &ec) const override {
+    if (p.empty()) {
+      ec = std::make_error_code(std::errc::no_such_file_or_directory);
+      return std::make_unique<fake_recursive_directory_iterator>();
+    }
+    auto [node_path, pit] = traverse(p);
+    if (pit != p.end()) {
+      ec = std::make_error_code(std::errc::no_such_file_or_directory);
+      return std::make_unique<fake_recursive_directory_iterator>();
+    }
+    if (node_path.back()->type != file_type::directory) {
+      ec = std::make_error_code(std::errc::not_a_directory);
+      return std::make_unique<fake_recursive_directory_iterator>();
+    }
+    auto ret = std::make_unique<fake_recursive_directory_iterator>(
+        p, std::move(node_path));
+    ec.clear();
+    return ret;
   }
 
   std::unique_ptr<pfs::recursive_directory_iterator>
-  recursive_directory_iterator(const path &p, error_code &ec) const override {
-    return nullptr; // TODO
+  recursive_directory_iterator(const path &p) const override {
+    error_code ec;
+    auto ret = recursive_directory_iterator(p, ec);
+    if (ec) {
+      throw filesystem_error("recursive_directory_iterator", ec);
+    }
+    return ret;
   }
 };
 
