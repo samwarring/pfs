@@ -83,6 +83,7 @@ private:
               << "  stat PATH      Prints properties file or directory.\n"
               << "  exist PATH     Checks if the path exists.\n"
               << "  isdir PATH     Checks if the path is a directory.\n"
+              << "  path PATH      Decompose a path.\n"
               << "  x, exit        Exit this program.\n"
               << std::endl;
   }
@@ -330,6 +331,24 @@ public:
 
         } else if (parsed(tokens, "isdir", "PATH")) {
           std::cout << fs_->is_directory(tokens[1]) << std::endl;
+
+        } else if (parsed(tokens, "path", "PATH")) {
+          pfs::path p(tokens[1]);
+          std::cout << "Path: \"" << p.string() << "\"\n"
+                    << "Root Name: \"" << p.root_name().string() << "\"\n"
+                    << "Root Directory: \"" << p.root_directory().string()
+                    << "\"\n"
+                    << "Relative Path: \"" << p.relative_path().string()
+                    << "\"\n"
+                    << "Filename: \"" << p.filename().string() << "\"\n"
+                    << "Stem: \"" << p.stem().string() << "\"\n"
+                    << "Extension: \"" << p.extension().string() << "\""
+                    << std::endl;
+          std::cout << "Iteration: ";
+          for (auto part : p) {
+            std::cout << "\"" << part.string() << "\" ";
+          }
+          std::cout << std::endl;
 
         } else {
           std::cout << "Unrecognized command. Try running `help`." << std::endl;
