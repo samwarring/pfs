@@ -3,7 +3,9 @@
 
 #include <cstddef>
 #include <filesystem>
+#include <istream>
 #include <memory>
+#include <ostream>
 
 namespace pfs {
 
@@ -51,6 +53,16 @@ public:
   recursive_directory_iterator(const path &p) const = 0;
   virtual std::unique_ptr<pfs::recursive_directory_iterator>
   recursive_directory_iterator(const path &p, error_code &ec) const = 0;
+  virtual std::unique_ptr<std::istream>
+  open_file_r(const path &p,
+              std::ios_base::openmode mode = std::ios_base::in) const = 0;
+  virtual std::unique_ptr<std::ostream>
+  open_file_w(const path &p,
+              std::ios_base::openmode mode = std::ios_base::out) = 0;
+  virtual std::unique_ptr<std::iostream>
+  open_file_rw(const path &p,
+               std::ios_base::openmode mode = std::ios_base::in |
+                                              std::ios_base::out) = 0;
 };
 
 class directory_iterator {

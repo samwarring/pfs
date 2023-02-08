@@ -959,6 +959,21 @@ public:
     }
     return ret;
   }
+
+  std::unique_ptr<std::istream>
+  open_file_r(const path &p, std::ios_base::openmode mode) const override {
+    return nullptr; // todo
+  }
+
+  std::unique_ptr<std::ostream>
+  open_file_w(const path &p, std::ios_base::openmode mode) override {
+    return nullptr; // todo
+  }
+
+  std::unique_ptr<std::iostream>
+  open_file_rw(const path &p, std::ios_base::openmode mode) override {
+    return nullptr; // todo
+  }
 };
 
 } // namespace pfs

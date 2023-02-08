@@ -1,6 +1,7 @@
 #ifndef INCLUDED_PFS_STD_FILESYSTEM_HPP
 #define INCLUDED_PFS_STD_FILESYSTEM_HPP
 
+#include <fstream>
 #include <pfs/filesystem.hpp>
 
 namespace pfs {
@@ -178,6 +179,23 @@ public:
   recursive_directory_iterator(const path &p, error_code &ec) const override {
     std::filesystem::recursive_directory_iterator it(p, ec);
     return std::make_unique<std_recursive_directory_iterator>(std::move(it));
+  }
+
+  std::unique_ptr<std::istream>
+  open_file_r(const path &p, std::ios_base::openmode mode) const override {
+    // Disallow open for writing.
+    return std::make_unique<std::ifstream>(p, mode ^ std::ios_base::out);
+  }
+
+  std::unique_ptr<std::ostream>
+  open_file_w(const path &p, std::ios_base::openmode mode) override {
+    // Disallow open for reading.
+    return std::make_unique<std::ofstream>(p, mode ^ std::ios_base::in);
+  }
+
+  std::unique_ptr<std::iostream>
+  open_file_rw(const path &p, std::ios_base::openmode mode) override {
+    return std::make_unique<std::fstream>(p, mode);
   }
 };
 
