@@ -63,29 +63,31 @@ private:
   pfs::filesystem *fs_{&fake_fs_};
 
   static void print_help() {
-    std::cout << '\n'
-              << "Available commands:\n"
-              << '\n'
-              << "  h, help        Print this message.\n"
-              << "  real           Switch to real filesystem.\n"
-              << "  fake           Switch to fake filesystem.\n"
-              << "  pwd            Print working directory.\n"
-              << "  cd DIR         Change working directory.\n"
-              << "  ls [DIR]       List contents of directory.\n"
-              << "  lr [DIR]       Recursively list contents of directory.\n"
-              << "  li [DIR]       Interactively recurse directory contents.\n"
-              << "  mkdir DIR      Create new directory. Parent must exist.\n"
-              << "  mkdirs DIR     Create directory and subdirectories.\n"
-              << "  rm PATH        Remove file or empty directory.\n"
-              << "  rmr PATH       Remove file or directories recursively.\n"
-              << "  mv SRC DST     Rename or move file or directory.\n"
-              << "  abs PATH       Convert to absolute path.\n"
-              << "  stat PATH      Prints properties file or directory.\n"
-              << "  exist PATH     Checks if the path exists.\n"
-              << "  isdir PATH     Checks if the path is a directory.\n"
-              << "  path PATH      Decompose a path.\n"
-              << "  x, exit        Exit this program.\n"
-              << std::endl;
+    std::cout
+        << '\n'
+        << "Available commands:\n"
+        << '\n'
+        << "  h, help        Print this message.\n"
+        << "  real           Switch to real filesystem.\n"
+        << "  fake           Switch to fake filesystem.\n"
+        << "  pwd            Print working directory.\n"
+        << "  cd DIR         Change working directory.\n"
+        << "  ls [DIR]       List contents of directory.\n"
+        << "  lr [DIR]       Recursively list contents of directory.\n"
+        << "  li [DIR]       Interactively recurse directory contents.\n"
+        << "  mkdir DIR      Create new directory. Parent must exist.\n"
+        << "  mkdirs DIR     Create directory and subdirectories.\n"
+        << "  rm PATH        Remove file or empty directory.\n"
+        << "  rmr PATH       Remove file or directories recursively.\n"
+        << "  mv SRC DST     Rename or move file or directory.\n"
+        << "  abs PATH       Convert to absolute path.\n"
+        << "  stat PATH      Prints properties file or directory.\n"
+        << "  exist PATH     Checks if the path exists.\n"
+        << "  isdir PATH     Checks if the path is a directory.\n"
+        << "  path PATH      Decompose a path.\n"
+        << "  touch FILE     Update file timestamp. Create if necessary.\n"
+        << "  x, exit        Exit this program.\n"
+        << std::endl;
   }
 
   static void print_help_interactive_recursive_list() {
@@ -352,6 +354,9 @@ public:
             std::cout << "\"" << part.string() << "\" ";
           }
           std::cout << std::endl;
+
+        } else if (parsed(tokens, "touch", "FILE")) {
+          fs_->open_file_w(tokens[1], std::ios_base::app);
 
         } else {
           std::cout << "Unrecognized command. Try running `help`." << std::endl;
