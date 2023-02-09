@@ -86,6 +86,7 @@ private:
         << "  isdir PATH     Checks if the path is a directory.\n"
         << "  path PATH      Decompose a path.\n"
         << "  touch FILE     Update file timestamp. Create if necessary.\n"
+        << "  cat FILE       Print the contents of a file.\n"
         << "  x, exit        Exit this program.\n"
         << std::endl;
   }
@@ -357,6 +358,22 @@ public:
 
         } else if (parsed(tokens, "touch", "FILE")) {
           fs_->open_file_w(tokens[1], std::ios_base::app);
+
+        } else if (parsed(tokens, "cat", "FILE")) {
+          auto in = fs_->open_file_r(tokens[1]);
+          if (in->fail()) {
+            std::cout << "The file could not be opened." << std::endl;
+          } else {
+            std::cout << in->rdbuf();
+            if (std::cout.fail()) {
+              // This can happen if the input file is empty.
+              std::cout.clear();
+            }
+            if (in->fail()) {
+              // Unable to dump the entire file.
+              std::cout << "Error reading the file." << std::endl;
+            }
+          }
 
         } else {
           std::cout << "Unrecognized command. Try running `help`." << std::endl;
