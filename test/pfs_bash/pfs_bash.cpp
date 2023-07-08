@@ -87,6 +87,7 @@ private:
         << "  path PATH      Decompose a path.\n"
         << "  touch FILE     Update file timestamp. Create if necessary.\n"
         << "  cat FILE       Print the contents of a file.\n"
+        << "  putl FILE LINE Appends a string and newline to a file. Create if necessary.\n"
         << "  x, exit        Exit this program.\n"
         << std::endl;
   }
@@ -372,6 +373,17 @@ public:
             if (in->fail()) {
               // Unable to dump the entire file.
               std::cout << "Error reading the file." << std::endl;
+            }
+          }
+
+        } else if (parsed(tokens, "putl", "FILE", "TEXT")) {
+          auto in = fs_->open_file_w(tokens[1], std::ios_base::app);
+          if (in->fail()) {
+            std::cout << "The file could not be opened." << std::endl;
+          } else {
+            *in << tokens[2] << std::endl;
+            if (in->fail()) {
+              std::cout << "Error writing to the file." << std::endl;
             }
           }
 
