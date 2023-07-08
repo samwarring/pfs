@@ -71,7 +71,7 @@ public:
   virtual directory_iterator &increment() = 0;
   virtual directory_iterator &increment(error_code &ec) = 0;
   virtual bool at_end() const = 0;
-  virtual const path &path() const noexcept = 0;
+  virtual const pfs::path &path() const noexcept = 0;
   virtual file_status status() const = 0;
   virtual file_status status(error_code &ec) const = 0;
 };
@@ -87,7 +87,7 @@ public:
   virtual void pop() = 0;
   virtual void pop(error_code &ec) = 0;
   virtual void disable_recursion_pending() = 0;
-  virtual const path &path() const noexcept = 0;
+  virtual const pfs::path &path() const noexcept = 0;
   virtual file_status status() const = 0;
   virtual file_status status(error_code &ec) const = 0;
 };

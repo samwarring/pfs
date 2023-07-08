@@ -470,6 +470,7 @@ public:
 #else
     // This node represents the root directory.
     root_node->name = "/";
+    root_node->type = file_type::directory;
 
     // If cwd not set, set it now.
     if (cwd_.empty()) {
